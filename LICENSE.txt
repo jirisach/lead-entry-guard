@@ -1,0 +1,29 @@
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   Copyright 2026 Jiří Šach
+
+   OPEN SOURCE COMPONENTS
+   The publicly available portions of this repository are licensed under
+   the Apache License, Version 2.0. You may obtain a copy at:
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   PROPRIETARY COMPONENTS
+   The following components are proprietary and NOT covered by the
+   Apache License. All rights reserved. No license is granted to use,
+   copy, modify, or distribute these components:
+
+     - Fingerprint Builder (HMAC identity signal)
+     - HMAC Key Manager and Key Rotation logic
+     - Vault integration (HashiCorp, AWS KMS, GCP KMS, Azure Key Vault)
+     - Shadow mode / A-B policy testing engine
+     - Reconciliation engine
+     - Enterprise tenant isolation features
+     - Dedicated Redis cluster management
+
+   For commercial licensing inquiries contact: [your@email.com]
+
+   Unless required by applicable law or agreed to in writing, the open
+   source portions of this software are distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
