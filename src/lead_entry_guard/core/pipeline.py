@@ -47,6 +47,7 @@ from lead_entry_guard.lookup.duplicate import DuplicateLookupTier
 from lead_entry_guard.lookup.redis_store import RedisIdempotencyStore
 from lead_entry_guard.normalization.normalizer import NormalizationLayer
 from lead_entry_guard.policies.engine import PolicyContext, PolicyEngine
+from lead_entry_guard.policies.recoverability import RecoverabilityLayer
 from lead_entry_guard.policies.shadow import ShadowModeEngine
 from lead_entry_guard.telemetry.exporter import (
     TelemetryEvent,
@@ -86,6 +87,7 @@ class IngestionPipeline:
         self._fp_builder = fingerprint_builder
         self._dup_tier = duplicate_tier
         self._policy = policy_engine
+        self._recoverability = RecoverabilityLayer()
         self._idempotency = idempotency_store
         self._telemetry = telemetry_queue
         self._tenants = tenant_registry
@@ -165,13 +167,17 @@ class IngestionPipeline:
         # ── Normalization ─────────────────────────────────────────────────
         normalized = self._normalizer.normalize(lead)
 
-        # ── Validation ────────────────────────────────────────────────────
+        # ── Validation + Recoverability ───────────────────────────────────
         validation = self._validator.validate(normalized)
+        assessment = self._recoverability.assess(validation, normalized)
 
-        # Early reject on validation failure — before fingerprint/lookup.
+        # Early reject on fatal errors — before fingerprint/lookup.
         # Saves a Redis round-trip for clearly invalid inputs.
-        if not validation.valid:
-            codes = [e.reason_code for e in validation.errors]
+        # Recoverable errors (invalid phone, valid email) are NOT early-rejected —
+        # they proceed to duplicate lookup and are handled by PolicyEngine
+        # according to the tenant's SalvagePolicy.
+        if assessment.fatal_errors:
+            codes = [e.reason_code for e in assessment.fatal_errors]
             return self._finalize(
                 lead, DecisionClass.REJECT, codes, None,
                 dup_skipped=False, degraded=False, start=start, tenant_config=tenant_config,
@@ -212,6 +218,8 @@ class IngestionPipeline:
             normalized_lead=normalized,
             validation_result=validation,
             duplicate_hint=dup_hint,
+            recoverability=assessment,
+            salvage_policy=tenant_config.salvage_policy,
             duplicate_check_skipped=dup_skipped,
         )
         decision, codes = self._policy.decide(ctx)
@@ -331,8 +339,9 @@ class IngestionPipeline:
         """
         normalized = self._normalizer.normalize(lead)
         validation = self._validator.validate(normalized)
-        if not validation.valid:
-            codes = [e.reason_code for e in validation.errors]
+        assessment = self._recoverability.assess(validation, normalized)
+        if assessment.fatal_errors:
+            codes = [e.reason_code for e in assessment.fatal_errors]
             return self._finalize(
                 lead, DecisionClass.REJECT, codes, None,
                 dup_skipped=False, degraded=False, start=original_start, tenant_config=tenant_config,
@@ -356,6 +365,8 @@ class IngestionPipeline:
             normalized_lead=normalized,
             validation_result=validation,
             duplicate_hint=dup_hint,
+            recoverability=assessment,
+            salvage_policy=tenant_config.salvage_policy,
             duplicate_check_skipped=False,
         )
         decision, codes = self._policy.decide(ctx)

@@ -20,6 +20,12 @@ from lead_entry_guard.lookup.redis_store import RedisDuplicateStore
 
 logger = logging.getLogger(__name__)
 
+# Default capacity used in store_accepted() when tenant capacity is not available.
+# store_accepted() is called after the decision — tenant config is not passed in.
+# This matches the registry's get_or_create behaviour: if the filter already exists
+# (created during check()), the capacity argument is ignored.
+_DEFAULT_BLOOM_CAPACITY = 100_000
+
 
 class DuplicateLookupTier:
     """
@@ -27,6 +33,12 @@ class DuplicateLookupTier:
 
     Bloom filter: fast negative pre-check only.
     Redis: authoritative store.
+
+    Bloom failure policy:
+      Any exception from get_or_create() or check_and_add() triggers a
+      fallback to Redis direct lookup. This includes BloomUnavailableError,
+      RuntimeError, MemoryError, and any other runtime failure. Bloom is a
+      performance optimisation — its failure must never block duplicate detection.
     """
 
     def __init__(
@@ -49,16 +61,24 @@ class DuplicateLookupTier:
         """
         fp = fingerprint.fingerprint_id  # internal use only, NEVER log
 
-        # Step 1: Bloom filter pre-check
+        # Step 1a: Get or create Bloom filter instance
         try:
             bloom_filter = self._bloom.get_or_create(tenant_id, capacity=bloom_capacity)
-            maybe_present = bloom_filter.check_and_add(fp)
-        except BloomUnavailableError as exc:
+        except Exception as exc:
             logger.warning(
-                "Bloom filter unavailable — falling back to Redis direct lookup",
+                "Bloom get_or_create failed — falling back to Redis direct lookup",
                 extra={"tenant_id": tenant_id, "error_type": type(exc).__name__},
             )
-            # Bloom unavailable → must fall back to Redis directly
+            return await self._redis_only_lookup(tenant_id, fp)
+
+        # Step 1b: Check and add to Bloom filter
+        try:
+            maybe_present = bloom_filter.check_and_add(fp)
+        except Exception as exc:
+            logger.warning(
+                "Bloom check_and_add failed — falling back to Redis direct lookup",
+                extra={"tenant_id": tenant_id, "error_type": type(exc).__name__},
+            )
             return await self._redis_only_lookup(tenant_id, fp)
 
         if not maybe_present:
@@ -115,8 +135,33 @@ class DuplicateLookupTier:
     async def store_accepted(
         self, tenant_id: str, fingerprint: FingerprintResult, lead_reference: str
     ) -> None:
-        """Called after successful lead acceptance to register fingerprint."""
-        await self._redis.store(tenant_id, fingerprint.fingerprint_id, lead_reference)
+        """Called after successful lead acceptance to register fingerprint.
+
+        Write path: Redis (authoritative) → Bloom (cache hint).
+        This mirrors the lookup path (Bloom → Redis) and ensures subsequent
+        duplicate checks correctly identify this lead via Bloom fast path.
+
+        Bloom update failure is non-fatal — Redis remains authoritative.
+        """
+        fp = fingerprint.fingerprint_id  # internal use only, NEVER log
+
+        # 1. Store authoritative record in Redis
+        await self._redis.store(tenant_id, fp, lead_reference)
+
+        # 2. Update Bloom filter so next lookup hits Bloom MAYBE → Redis confirmed
+        #    instead of Bloom negative → skip Redis (which would miss the duplicate)
+        try:
+            bloom_filter = self._bloom.get_or_create(
+                tenant_id, capacity=_DEFAULT_BLOOM_CAPACITY
+            )
+            bloom_filter.check_and_add(fp)  # adds to active slot if not already present
+        except Exception:
+            # Bloom update failure must never break ingestion — Redis is authoritative
+            logger.warning(
+                "Bloom update failed during store_accepted — duplicate detection "
+                "will fall back to Redis direct lookup for this fingerprint",
+                extra={"tenant_id": tenant_id},
+            )
 
     async def is_available(self) -> bool:
         """Probe Redis availability without exposing internal store details."""

@@ -26,6 +26,11 @@ class ReasonCode(str, Enum):
     WARN_INDEX_UNAVAILABLE = "WARN_INDEX_UNAVAILABLE"
     WARN_DUPLICATE_POSSIBLE = "WARN_DUPLICATE_POSSIBLE"
     WARN_POLICY_DEGRADED = "WARN_POLICY_DEGRADED"
+    # Salvage — recoverable quality issues (not fatal)
+    WARN_INVALID_OPTIONAL_PHONE = "WARN_INVALID_OPTIONAL_PHONE"
+    WARN_MISSING_OPTIONAL_FIELD = "WARN_MISSING_OPTIONAL_FIELD"
+    WARN_DATA_QUALITY = "WARN_DATA_QUALITY"
+    WARN_MANUAL_REVIEW_REQUIRED = "WARN_MANUAL_REVIEW_REQUIRED"
     # Rejections
     REJECT_INVALID_EMAIL = "REJECT_INVALID_EMAIL"
     REJECT_INVALID_PHONE = "REJECT_INVALID_PHONE"
@@ -43,6 +48,21 @@ class DegradedModePolicy(str, Enum):
     ACCEPT_WITH_FLAG = "ACCEPT_WITH_FLAG"
     REJECT = "REJECT"
     QUEUE = "QUEUE"
+
+
+class SalvagePolicy(str, Enum):
+    """Controls how recoverable validation errors are handled.
+
+    STRICT   — any validation error (including recoverable) → REJECT.
+               Default for high-risk / compliance tenants.
+    SALVAGE  — fatal errors → REJECT, recoverable errors → WARN with reason codes.
+               Suitable for growth / marketing tenants where lead volume matters.
+    QUARANTINE — recoverable errors → WARN + manual review hint.
+               Middle ground: lead passes but is flagged for ops review.
+    """
+    STRICT = "STRICT"
+    SALVAGE = "SALVAGE"
+    QUARANTINE = "QUARANTINE"
 
 
 class SourceType(str, Enum):
@@ -86,6 +106,29 @@ class ValidationError(BaseModel):
 class ValidationResult(BaseModel):
     valid: bool
     errors: list[ValidationError] = Field(default_factory=list)
+
+
+class RecoverabilityAssessment(BaseModel):
+    """Classifies validation errors into fatal vs recoverable.
+
+    Fatal errors always cause REJECT regardless of SalvagePolicy.
+    Recoverable errors are handled according to the tenant's SalvagePolicy.
+
+    This sits between ValidationLayer and PolicyEngine — it does not make
+    the final decision, it only categorizes the errors for the engine to act on.
+    """
+    fatal_errors: list[ValidationError] = Field(default_factory=list)
+    recoverable_errors: list[ValidationError] = Field(default_factory=list)
+    quality_flags: list[ReasonCode] = Field(default_factory=list)
+
+    @property
+    def is_salvageable(self) -> bool:
+        """True if there are no fatal errors — lead can potentially pass with WARN."""
+        return len(self.fatal_errors) == 0
+
+    @property
+    def has_any_issue(self) -> bool:
+        return bool(self.fatal_errors or self.recoverable_errors or self.quality_flags)
 
 
 class FingerprintResult(BaseModel):

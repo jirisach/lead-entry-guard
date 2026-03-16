@@ -2,18 +2,17 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from lead_entry_guard.core.models import DegradedModePolicy
+from lead_entry_guard.core.models import DegradedModePolicy, SalvagePolicy
 
 
 class TenantTier(str, Enum):
-    SMALL = "small"       # < 10k leads/month
-    MEDIUM = "medium"     # < 100k
-    LARGE = "large"       # < 1M
-    ENTERPRISE = "enterprise"  # > 1M
+    SMALL = "small"           # < 10k leads/month
+    MEDIUM = "medium"         # < 100k
+    LARGE = "large"           # < 1M
+    ENTERPRISE = "enterprise" # > 1M
 
 
 TIER_BLOOM_CAPACITY: dict[TenantTier, int] = {
@@ -30,6 +29,11 @@ class TenantConfig(BaseModel):
     degraded_mode_policy: DegradedModePolicy = DegradedModePolicy.ACCEPT_WITH_FLAG
     # QUEUE fallback when cap or timeout hit
     queue_fallback_policy: DegradedModePolicy = DegradedModePolicy.ACCEPT_WITH_FLAG
+    # Controls how recoverable validation errors are handled
+    # STRICT     = invalid phone → REJECT  (high-risk / compliance tenants)
+    # SALVAGE    = invalid phone → WARN    (growth / marketing tenants)
+    # QUARANTINE = invalid phone → WARN + manual review hint
+    salvage_policy: SalvagePolicy = SalvagePolicy.STRICT
     # Dedicated Redis cluster (sensitive tenants)
     dedicated_redis: bool = False
     dedicated_redis_url: str | None = None
@@ -59,7 +63,7 @@ class TenantRegistry:
 
     def get(self, tenant_id: str) -> TenantConfig:
         if tenant_id not in self._configs:
-            # Auto-register with defaults
+            # Auto-register with defaults — STRICT by default (fail-safe)
             config = TenantConfig(tenant_id=tenant_id)
             self._configs[tenant_id] = config
         return self._configs[tenant_id]
