@@ -1,0 +1,134 @@
+{
+  "dataset": "synthetic_data\\output\\messy_leads_100k.jsonl",
+  "total_records": 100000,
+  "records_without_truth": 0,
+  "duration_s": 96.5,
+  "overall": {
+    "accuracy": 1.0,
+    "correct": 95000,
+    "total_non_exploratory": 95000,
+    "strict_accuracy": 1.0,
+    "strict_correct": 72000,
+    "strict_total": 72000,
+    "false_positives_total": 0,
+    "false_negatives_total": 0,
+    "note": "accuracy = actual in valid_decisions. strict_accuracy = single-outcome buckets only (clean, broken, exact_duplicate). Exploratory buckets excluded from both."
+  },
+  "buckets": {
+    "broken": {
+      "bucket": "broken",
+      "exploratory": false,
+      "total": 7000,
+      "correct": 7000,
+      "accuracy": 1.0,
+      "strict_correct": 7000,
+      "strict_total": 7000,
+      "strict_accuracy": 1.0,
+      "false_positives": [],
+      "false_positives_total": 0,
+      "false_negatives": [],
+      "false_negatives_total": 0,
+      "confusion_matrix": {
+        "REJECT": {
+          "REJECT": 7000
+        }
+      }
+    },
+    "clean": {
+      "bucket": "clean",
+      "exploratory": false,
+      "total": 62500,
+      "correct": 62500,
+      "accuracy": 1.0,
+      "strict_correct": 62500,
+      "strict_total": 62500,
+      "strict_accuracy": 1.0,
+      "false_positives": [],
+      "false_positives_total": 0,
+      "false_negatives": [],
+      "false_negatives_total": 0,
+      "confusion_matrix": {
+        "PASS": {
+          "PASS": 62500
+        }
+      }
+    },
+    "dirty": {
+      "bucket": "dirty",
+      "exploratory": false,
+      "total": 20000,
+      "correct": 20000,
+      "accuracy": 1.0,
+      "strict_correct": 0,
+      "strict_total": 0,
+      "strict_accuracy": null,
+      "false_positives": [],
+      "false_positives_total": 0,
+      "false_negatives": [],
+      "false_negatives_total": 0,
+      "confusion_matrix": {
+        "WARN": {
+          "REJECT": 8041,
+          "PASS": 11959
+        }
+      }
+    },
+    "edge_case": {
+      "bucket": "edge_case",
+      "exploratory": false,
+      "total": 3000,
+      "correct": 3000,
+      "accuracy": 1.0,
+      "strict_correct": 0,
+      "strict_total": 0,
+      "strict_accuracy": null,
+      "false_positives": [],
+      "false_positives_total": 0,
+      "false_negatives": [],
+      "false_negatives_total": 0,
+      "confusion_matrix": {
+        "WARN": {
+          "PASS": 3000
+        }
+      }
+    },
+    "exact_duplicate": {
+      "bucket": "exact_duplicate",
+      "exploratory": false,
+      "total": 2500,
+      "correct": 2500,
+      "accuracy": 1.0,
+      "strict_correct": 2500,
+      "strict_total": 2500,
+      "strict_accuracy": 1.0,
+      "false_positives": [],
+      "false_positives_total": 0,
+      "false_negatives": [],
+      "false_negatives_total": 0,
+      "confusion_matrix": {
+        "DUPLICATE_HINT": {
+          "DUPLICATE_HINT": 2500
+        }
+      }
+    },
+    "near_duplicate": {
+      "bucket": "near_duplicate",
+      "exploratory": true,
+      "total": 5000,
+      "correct": 5000,
+      "accuracy": 1.0,
+      "strict_correct": 0,
+      "strict_total": 0,
+      "strict_accuracy": null,
+      "false_positives": [],
+      "false_positives_total": 0,
+      "false_negatives": [],
+      "false_negatives_total": 0,
+      "confusion_matrix": {
+        "WARN": {
+          "DUPLICATE_HINT": 5000
+        }
+      }
+    }
+  }
+}
