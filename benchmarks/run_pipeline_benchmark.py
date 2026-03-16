@@ -71,16 +71,30 @@ from lead_entry_guard.normalization.normalizer import NormalizationLayer
 from lead_entry_guard.policies.engine import PolicyEngine
 from lead_entry_guard.security.hmac_keys import HMACKeyManager
 from lead_entry_guard.security.vault import InMemoryVaultClient
-from lead_entry_guard.telemetry.exporter import TelemetryExporter, TelemetryQueue
+from lead_entry_guard.telemetry.exporter import TelemetryQueue
 from lead_entry_guard.validation.validator import ValidationLayer
 from tests.fixtures.common import make_key_ring
 
 
+async def _drain_telemetry(queue: TelemetryQueue, stop_event: asyncio.Event) -> int:
+    """Drain telemetry queue in background. Returns total events drained."""
+    drained = 0
+    while not stop_event.is_set() or not queue._queue.empty():
+        try:
+            await asyncio.wait_for(queue._queue.get(), timeout=0.1)
+            queue.task_done()
+            drained += 1
+        except asyncio.TimeoutError:
+            if stop_event.is_set():
+                break
+    return drained
+
+
 async def _build_pipeline(
     redis_url: str | None,
-    telemetry_queue_size: int = 5000,
-) -> tuple[IngestionPipeline, TelemetryExporter | None]:
-    """Build pipeline with real or fake Redis and active telemetry export."""
+    telemetry_queue_size: int = 10_000,
+) -> tuple[IngestionPipeline, asyncio.Event]:
+    """Build pipeline with real or fake Redis and background telemetry drain."""
     redis_client = _make_redis_client(redis_url)
     km = HMACKeyManager()
     await km.load_from_vault(InMemoryVaultClient(make_key_ring()))
@@ -102,14 +116,13 @@ async def _build_pipeline(
     ))
 
     telemetry_queue = TelemetryQueue(max_size=telemetry_queue_size)
+    stop_event = asyncio.Event()
 
-    # Start telemetry exporter if available
-    exporter = None
-    try:
-        exporter = TelemetryExporter(telemetry_queue)
-        await exporter.start()
-    except Exception:
-        exporter = None  # telemetry export optional — benchmark continues
+    # Start background drain task — simulates active telemetry export
+    asyncio.create_task(
+        _drain_telemetry(telemetry_queue, stop_event),
+        name="bench_telemetry_drain",
+    )
 
     pipeline = IngestionPipeline(
         normalizer=NormalizationLayer(),
@@ -122,7 +135,7 @@ async def _build_pipeline(
         tenant_registry=registry,
     )
 
-    return pipeline, exporter
+    return pipeline, stop_event
 
 
 # ── Dataset generator ─────────────────────────────────────────────────────────
@@ -277,21 +290,32 @@ async def run_benchmark(
     n_leads: int,
     concurrency: int,
 ) -> BenchmarkResult:
+    import psutil
+    import os
+
     redis_mode = f"real ({redis_url})" if redis_url else "fakeredis (in-process)"
     print(f"\n[setup] Building pipeline — {redis_mode}")
 
-    pipeline, exporter = await _build_pipeline(redis_url)
+    pipeline, stop_event = await _build_pipeline(redis_url)
     leads = _make_leads(n_leads)
 
     print(f"[run]   {n_leads:,} leads, concurrency={concurrency}")
 
-    tracemalloc.start()
-    mem_start = tracemalloc.get_traced_memory()[0] / 1024 / 1024
+    # Use psutil for real process memory if available, else tracemalloc
+    try:
+        proc = psutil.Process(os.getpid())
+        mem_start = proc.memory_info().rss / 1024 / 1024
+        use_psutil = True
+    except Exception:
+        tracemalloc.start()
+        mem_start = 0.0
+        use_psutil = False
 
     semaphore = asyncio.Semaphore(concurrency)
     latencies: list[float] = []
     decisions: dict[str, int] = defaultdict(int)
     errors = 0
+    mem_samples: list[float] = []
 
     async def process_one(lead: LeadInput) -> None:
         nonlocal errors
@@ -305,8 +329,19 @@ async def run_benchmark(
                 errors += 1
                 latencies.append((time.monotonic() - t0) * 1000)
 
+    async def sample_memory() -> None:
+        """Sample memory every second during benchmark."""
+        while not stop_event.is_set():
+            try:
+                if use_psutil:
+                    mem_samples.append(proc.memory_info().rss / 1024 / 1024)
+            except Exception:
+                pass
+            await asyncio.sleep(1.0)
+
     start = time.monotonic()
     tasks = [process_one(lead) for lead in leads]
+    mem_task = asyncio.create_task(sample_memory(), name="mem_sampler")
 
     completed = 0
     for coro in asyncio.as_completed(tasks):
@@ -321,18 +356,18 @@ async def run_benchmark(
     print()
 
     await pipeline.flush_pending()
+    stop_event.set()
+    mem_task.cancel()
 
-    _, mem_peak_bytes = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
-    mem_peak = mem_peak_bytes / 1024 / 1024
+    # Final memory reading
+    if use_psutil:
+        mem_peak = max(mem_samples) if mem_samples else mem_start
+    else:
+        _, mem_peak_bytes = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        mem_peak = mem_peak_bytes / 1024 / 1024
 
     telemetry_backlog = pipeline._telemetry._queue.qsize()
-
-    if exporter:
-        try:
-            await exporter.stop()
-        except Exception:
-            pass
 
     return BenchmarkResult(
         redis_mode=redis_mode,
