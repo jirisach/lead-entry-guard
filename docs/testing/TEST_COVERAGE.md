@@ -166,11 +166,52 @@ Near-duplicate leady dostaly WARN, nikoli DUPLICATE_HINT. Bucket je záměrně `
 
 ---
 
+## Phase 2 — Production benchmark výsledky
+
+> Prostředí: real Redis (Docker), Windows localhost, psutil memory tracking, aktivní telemetry drain.
+
+### Concurrency sweep (real Redis)
+
+| Concurrency | Throughput | p50 | p99 | Memory growth |
+|---|---|---|---|---|
+| 10 | **1,056 req/s** | 6.98 ms | 25.8 ms | 15.6 MB |
+| 50 | 912 req/s | 36.0 ms | 230 ms | 15.7 MB |
+| 100 | 756 req/s | 74.7 ms | 553 ms | 22.2 MB |
+| 200 | 532 req/s | 150.9 ms | 1271 ms | 25.0 MB |
+
+**Sweet spot: concurrency 10–25** — nejlepší poměr throughput / latence pro localhost Docker Redis.
+
+### Soak test (30 minut, real Redis, concurrency 25)
+
+| Metrika | Start | Střed | Konec | Drift |
+|---|---|---|---|---|
+| Throughput | 1,299 req/s | 1,401 req/s | 1,460 req/s | ↑ +12.4% ✓ |
+| p50 latence | 12.9 ms | 12.6 ms | 12.2 ms | ↓ -5.8% ✓ |
+| p99 latence | 23.9 ms | 18.6 ms | 15.6 ms | ↓ -34.9% ✓ |
+| Memory | 65.9 MB | 67.4 MB | 62.6 MB | ↓ -5.0% ✓ |
+| Telemetry backlog | 0 | 0 | 0 | ✓ |
+
+**Celkem:** 2,398,150 leadů · 0 errors · avg 1,332 req/s · žádný memory leak signál.
+
+Throughput se v čase zlepšoval (warm-up efekt connection poolu + Bloom cache) — žádná degradace.
+
+### Noisy neighbor test (po ADR-006 per-tenant semaphore)
+
+| Scénář | Noisy tenant | Normal tenant p99 | Quiet tenant p99 | Verdict |
+|---|---|---|---|---|
+| Two-tenant storm | 500 concurrent | 517 ms | — | PASS |
+| Three-tenant storm | 500 concurrent | 33 ms | 62 ms | PASS |
+
+Per-tenant concurrency cap (ADR-006) úspěšně izoluje noisy tenanta od ostatních.  
+Bez capu: normal tenant p99 = 2125 ms (FAIL). Po capu: 517 ms (PASS).
+
+---
+
 ## Doporučené další kroky
 
 1. **Zpřesnit dirty bucket v generátoru** — rozdělit na typed subtypes (`dirty_valid_email`, `dirty_invalid_phone`, ...) pro přesnější accuracy metriku
-2. **Production-like benchmark** — real Redis + concurrent batch + zapnutá telemetry export vrstva
-3. **Near-duplicate bucket truth kontrakt** — ujasnit co je validní outcome pro exploratory bucket v accuracy reportu
+2. **Near-duplicate bucket truth kontrakt** — ujasnit co je validní outcome pro exploratory bucket v accuracy reportu
+3. **Phase 3** — API surface (FastAPI auth + rate limiting), observability (health endpoints, Prometheus metrics), deployment example
 
 ---
 

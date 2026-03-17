@@ -37,6 +37,10 @@ dev = [
     "ruff>=0.4.0",
     "mypy>=1.10.0",
 ]
+benchmark = [
+    "psutil>=5.9.0",
+    "aiohttp>=3.9.0",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
