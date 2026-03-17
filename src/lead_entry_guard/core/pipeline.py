@@ -93,13 +93,9 @@ class IngestionPipeline:
         self._tenants = tenant_registry
         self._shadow = shadow_engine
         self._hold_queues: dict[str, deque[QueuedLead]] = defaultdict(deque)
-        # Note: per-queue locking is not needed here because asyncio is single-threaded
-        # and all queue mutations happen within a single coroutine without yield points
-        # between the cap check and the append. If threading is introduced later,
-        # re-add per-tenant asyncio.Lock here.
-        #
-        # Short-lived background tasks (fingerprint store, idempotency snapshot).
-        # set keeps strong references so tasks aren't GC'd before completion.
+        # Per-tenant concurrency semaphores — prevents a noisy tenant from
+        # starving others on the shared event loop (ADR-006).
+        self._tenant_semaphores: dict[str, asyncio.Semaphore] = {}
         self._pending_tasks: set[asyncio.Task[Any]] = set()
 
     def _fire_and_forget(self, coro: Coroutine[Any, Any, Any], *, name: str) -> None:
@@ -131,17 +127,29 @@ class IngestionPipeline:
         task.add_done_callback(_on_done)
 
     async def flush_pending(self) -> None:
-        """Wait for all fire-and-forget background tasks to complete.
-
-        Intended for tests and benchmarks that need deterministic state after
-        pipeline.process() — avoids accessing the private _pending_tasks set directly.
-        """
+        """Wait for all fire-and-forget background tasks to complete."""
         if self._pending_tasks:
             await asyncio.gather(*list(self._pending_tasks), return_exceptions=True)
 
+    def _get_tenant_semaphore(self, tenant_config: "TenantConfig") -> asyncio.Semaphore:
+        """Return the per-tenant concurrency semaphore, creating it on first use."""
+        tenant_id = tenant_config.tenant_id
+        if tenant_id not in self._tenant_semaphores:
+            self._tenant_semaphores[tenant_id] = asyncio.Semaphore(
+                tenant_config.max_concurrent
+            )
+        return self._tenant_semaphores[tenant_id]
+
     async def process(self, lead: LeadInput) -> DecisionResult:
-        start = time.monotonic()
         tenant_config = self._tenants.get(lead.tenant_id)
+        sem = self._get_tenant_semaphore(tenant_config)
+        async with sem:
+            return await self._process_inner(lead, tenant_config)
+
+    async def _process_inner(
+        self, lead: LeadInput, tenant_config: "TenantConfig"
+    ) -> DecisionResult:
+        start = time.monotonic()
 
         # ── Idempotency check ─────────────────────────────────────────────
         # Only checked when source_id is present — transport-retry protection.

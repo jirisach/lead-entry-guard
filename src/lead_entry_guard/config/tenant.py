@@ -22,6 +22,15 @@ TIER_BLOOM_CAPACITY: dict[TenantTier, int] = {
     TenantTier.ENTERPRISE: 50_000_000,
 }
 
+# Per-tenant concurrency caps — prevents a noisy tenant from starving others.
+# A tenant exceeding this limit will queue behind the semaphore.
+TIER_MAX_CONCURRENT: dict[TenantTier, int] = {
+    TenantTier.SMALL: 20,
+    TenantTier.MEDIUM: 50,
+    TenantTier.LARGE: 100,
+    TenantTier.ENTERPRISE: 200,
+}
+
 
 class TenantConfig(BaseModel):
     tenant_id: str
@@ -42,6 +51,10 @@ class TenantConfig(BaseModel):
     reconciliation_corrections_per_hour: int = 1000
     # Bloom sizing override (None = derive from tier)
     bloom_capacity_override: int | None = None
+    # Per-tenant concurrency cap — limits simultaneous pipeline.process() calls.
+    # Prevents a noisy tenant from starving others on the shared event loop.
+    # None = derive from tier default (see TIER_MAX_CONCURRENT).
+    max_concurrent_override: int | None = None
     # Policy overrides
     active_policy_version: str | None = None
 
@@ -50,6 +63,12 @@ class TenantConfig(BaseModel):
         if self.bloom_capacity_override:
             return self.bloom_capacity_override
         return TIER_BLOOM_CAPACITY[self.tier]
+
+    @property
+    def max_concurrent(self) -> int:
+        if self.max_concurrent_override is not None:
+            return self.max_concurrent_override
+        return TIER_MAX_CONCURRENT[self.tier]
 
 
 class TenantRegistry:
