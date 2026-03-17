@@ -1,0 +1,118 @@
+[
+  {
+    "timestamp": "2026-03-17T00:02:30.018790+00:00",
+    "redis_mode": "real (redis://localhost:6379)",
+    "n_leads": 2000,
+    "concurrency": 10,
+    "duration_s": 1.895,
+    "throughput_rps": 1055.6,
+    "errors": 0,
+    "decisions": {
+      "PASS": 1000,
+      "WARN": 300,
+      "REJECT": 200,
+      "DUPLICATE_HINT": 500
+    },
+    "latency_ms": {
+      "p50": 6.98,
+      "p90": 12.09,
+      "p95": 13.08,
+      "p99": 25.75,
+      "mean": 8.18,
+      "max": 60.22
+    },
+    "memory_mb": {
+      "start": 52.7,
+      "peak": 68.34,
+      "growth": 15.64
+    },
+    "telemetry_queue_at_end": 0
+  },
+  {
+    "timestamp": "2026-03-17T00:02:32.248158+00:00",
+    "redis_mode": "real (redis://localhost:6379)",
+    "n_leads": 2000,
+    "concurrency": 50,
+    "duration_s": 2.193,
+    "throughput_rps": 912.0,
+    "errors": 0,
+    "decisions": {
+      "REJECT": 200,
+      "PASS": 1003,
+      "WARN": 300,
+      "DUPLICATE_HINT": 497
+    },
+    "latency_ms": {
+      "p50": 35.99,
+      "p90": 64.75,
+      "p95": 104.23,
+      "p99": 230.04,
+      "mean": 47.4,
+      "max": 328.24
+    },
+    "memory_mb": {
+      "start": 61.66,
+      "peak": 77.34,
+      "growth": 15.68
+    },
+    "telemetry_queue_at_end": 0
+  },
+  {
+    "timestamp": "2026-03-17T00:02:34.932301+00:00",
+    "redis_mode": "real (redis://localhost:6379)",
+    "n_leads": 2000,
+    "concurrency": 100,
+    "duration_s": 2.646,
+    "throughput_rps": 756.0,
+    "errors": 0,
+    "decisions": {
+      "PASS": 1004,
+      "REJECT": 200,
+      "WARN": 300,
+      "DUPLICATE_HINT": 496
+    },
+    "latency_ms": {
+      "p50": 74.73,
+      "p90": 217.82,
+      "p95": 325.8,
+      "p99": 553.09,
+      "mean": 111.86,
+      "max": 572.84
+    },
+    "memory_mb": {
+      "start": 70.39,
+      "peak": 92.54,
+      "growth": 22.15
+    },
+    "telemetry_queue_at_end": 0
+  },
+  {
+    "timestamp": "2026-03-17T00:02:38.731414+00:00",
+    "redis_mode": "real (redis://localhost:6379)",
+    "n_leads": 2000,
+    "concurrency": 200,
+    "duration_s": 3.757,
+    "throughput_rps": 532.3,
+    "errors": 0,
+    "decisions": {
+      "WARN": 300,
+      "PASS": 1010,
+      "REJECT": 200,
+      "DUPLICATE_HINT": 490
+    },
+    "latency_ms": {
+      "p50": 150.9,
+      "p90": 771.06,
+      "p95": 1173.46,
+      "p99": 1270.99,
+      "mean": 310.3,
+      "max": 1683.97
+    },
+    "memory_mb": {
+      "start": 85.64,
+      "peak": 110.62,
+      "growth": 24.99
+    },
+    "telemetry_queue_at_end": 0
+  }
+]

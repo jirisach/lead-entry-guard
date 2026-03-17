@@ -1,0 +1,116 @@
+[
+  {
+    "timestamp": "2026-03-17T01:19:30.202739+00:00",
+    "scenario": "two_tenant_storm",
+    "redis_mode": "real (redis://localhost:6379)",
+    "duration_s": 2.8,
+    "isolation_verdict": "FAIL",
+    "isolation_notes": [
+      "Noisy tenant (tenant_noisy): 500 requests, p99=2299.6ms",
+      "\u2717 tenant_normal (normal): p99=2125.7ms \u2014 exceeds 3x baseline (1500ms)"
+    ],
+    "tenants": [
+      {
+        "tenant_id": "tenant_noisy",
+        "role": "noisy",
+        "total_requests": 500,
+        "errors": 0,
+        "throughput_rps": 178.5,
+        "latency_ms": {
+          "p50": 1550.59,
+          "p95": 2271.57,
+          "p99": 2299.6,
+          "mean": 1775.47,
+          "max": 2303.37
+        },
+        "decisions": {
+          "PASS": 349,
+          "DUPLICATE_HINT": 151
+        }
+      },
+      {
+        "tenant_id": "tenant_normal",
+        "role": "normal",
+        "total_requests": 100,
+        "errors": 0,
+        "throughput_rps": 35.7,
+        "latency_ms": {
+          "p50": 2089.7,
+          "p95": 2123.14,
+          "p99": 2125.7,
+          "mean": 2088.57,
+          "max": 2125.7
+        },
+        "decisions": {
+          "PASS": 100
+        }
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-03-17T01:19:31.570125+00:00",
+    "scenario": "three_tenant_storm",
+    "redis_mode": "real (redis://localhost:6379)",
+    "duration_s": 1.35,
+    "isolation_verdict": "WARN",
+    "isolation_notes": [
+      "Noisy tenant (tenant_A_noisy): 500 requests, p99=5.7ms",
+      "\u2713 tenant_B_normal (normal): p99=596.0ms \u2014 within acceptable range",
+      "\u26a0 tenant_C_quiet (quiet): p99=1174.0ms \u2014 elevated (>750ms)"
+    ],
+    "tenants": [
+      {
+        "tenant_id": "tenant_A_noisy",
+        "role": "noisy",
+        "total_requests": 500,
+        "errors": 0,
+        "throughput_rps": 371.0,
+        "latency_ms": {
+          "p50": 0.73,
+          "p95": 2.84,
+          "p99": 5.72,
+          "mean": 2.44,
+          "max": 600.73
+        },
+        "decisions": {
+          "PASS": 499,
+          "DUPLICATE_HINT": 1
+        }
+      },
+      {
+        "tenant_id": "tenant_B_normal",
+        "role": "normal",
+        "total_requests": 100,
+        "errors": 0,
+        "throughput_rps": 74.2,
+        "latency_ms": {
+          "p50": 2.21,
+          "p95": 11.34,
+          "p99": 596.02,
+          "mean": 8.93,
+          "max": 601.9
+        },
+        "decisions": {
+          "PASS": 100
+        }
+      },
+      {
+        "tenant_id": "tenant_C_quiet",
+        "role": "quiet",
+        "total_requests": 20,
+        "errors": 0,
+        "throughput_rps": 14.8,
+        "latency_ms": {
+          "p50": 3.48,
+          "p95": 627.57,
+          "p99": 1174.02,
+          "mean": 36.62,
+          "max": 660.1
+        },
+        "decisions": {
+          "PASS": 20
+        }
+      }
+    ]
+  }
+]

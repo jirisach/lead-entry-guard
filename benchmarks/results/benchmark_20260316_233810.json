@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-03-16T23:38:10.544960+00:00",
+  "redis_mode": "real (redis://localhost:6379)",
+  "n_leads": 10000,
+  "concurrency": 100,
+  "duration_s": 29.127,
+  "throughput_rps": 343.3,
+  "errors": 0,
+  "decisions": {
+    "PASS": 5002,
+    "WARN": 1500,
+    "REJECT": 1000,
+    "DUPLICATE_HINT": 2498
+  },
+  "latency_ms": {
+    "p50": 212.89,
+    "p90": 383.63,
+    "p95": 423.44,
+    "p99": 889.58,
+    "mean": 256.11,
+    "max": 1609.92
+  },
+  "memory_mb": {
+    "start": 0.0,
+    "peak": 45.37,
+    "growth": 45.37
+  },
+  "telemetry_queue_at_end": 5000
+}

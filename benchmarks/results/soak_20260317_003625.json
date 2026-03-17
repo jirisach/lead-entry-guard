@@ -1,0 +1,418 @@
+{
+  "timestamp": "2026-03-17T00:31:25.851305+00:00",
+  "redis_mode": "real (redis://localhost:6379)",
+  "duration_s": 300.0,
+  "concurrency": 25,
+  "total_leads": 373650,
+  "total_errors": 0,
+  "avg_throughput_rps": 1245.5,
+  "snapshots": [
+    {
+      "elapsed_s": 10.0,
+      "throughput_rps": 1117.7,
+      "p50_ms": 15.41,
+      "p99_ms": 29.45,
+      "memory_mb": 65.1,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "PASS": 529,
+        "WARN": 204,
+        "REJECT": 1156,
+        "DUPLICATE_HINT": 9311
+      }
+    },
+    {
+      "elapsed_s": 20.0,
+      "throughput_rps": 1108.4,
+      "p50_ms": 15.68,
+      "p99_ms": 26.16,
+      "memory_mb": 65.2,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "REJECT": 1111,
+        "DUPLICATE_HINT": 9963,
+        "PASS": 26
+      }
+    },
+    {
+      "elapsed_s": 30.0,
+      "throughput_rps": 1174.4,
+      "p50_ms": 14.88,
+      "p99_ms": 24.14,
+      "memory_mb": 65.5,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "REJECT": 1149,
+        "DUPLICATE_HINT": 10586,
+        "PASS": 15
+      }
+    },
+    {
+      "elapsed_s": 40.1,
+      "throughput_rps": 1175.1,
+      "p50_ms": 15.0,
+      "p99_ms": 24.92,
+      "memory_mb": 65.5,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "DUPLICATE_HINT": 10545,
+        "REJECT": 1212,
+        "PASS": 18
+      }
+    },
+    {
+      "elapsed_s": 50.1,
+      "throughput_rps": 1041.3,
+      "p50_ms": 15.89,
+      "p99_ms": 27.31,
+      "memory_mb": 65.5,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "REJECT": 1047,
+        "DUPLICATE_HINT": 9363,
+        "PASS": 15
+      }
+    },
+    {
+      "elapsed_s": 60.1,
+      "throughput_rps": 1172.9,
+      "p50_ms": 14.81,
+      "p99_ms": 22.71,
+      "memory_mb": 65.6,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "DUPLICATE_HINT": 10561,
+        "REJECT": 1171,
+        "PASS": 18
+      }
+    },
+    {
+      "elapsed_s": 70.1,
+      "throughput_rps": 1216.5,
+      "p50_ms": 14.43,
+      "p99_ms": 21.9,
+      "memory_mb": 65.7,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "REJECT": 1231,
+        "DUPLICATE_HINT": 10930,
+        "PASS": 14
+      }
+    },
+    {
+      "elapsed_s": 80.1,
+      "throughput_rps": 1202.9,
+      "p50_ms": 14.53,
+      "p99_ms": 19.88,
+      "memory_mb": 65.8,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "REJECT": 1253,
+        "DUPLICATE_HINT": 10768,
+        "PASS": 29
+      }
+    },
+    {
+      "elapsed_s": 90.1,
+      "throughput_rps": 1204.3,
+      "p50_ms": 14.28,
+      "p99_ms": 22.79,
+      "memory_mb": 65.9,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "DUPLICATE_HINT": 10842,
+        "REJECT": 1186,
+        "PASS": 22
+      }
+    },
+    {
+      "elapsed_s": 100.1,
+      "throughput_rps": 1194.6,
+      "p50_ms": 14.43,
+      "p99_ms": 21.87,
+      "memory_mb": 66.0,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "DUPLICATE_HINT": 10683,
+        "REJECT": 1239,
+        "PASS": 28
+      }
+    },
+    {
+      "elapsed_s": 110.2,
+      "throughput_rps": 1204.5,
+      "p50_ms": 14.37,
+      "p99_ms": 22.86,
+      "memory_mb": 66.1,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "DUPLICATE_HINT": 10853,
+        "REJECT": 1203,
+        "PASS": 19
+      }
+    },
+    {
+      "elapsed_s": 120.2,
+      "throughput_rps": 1219.4,
+      "p50_ms": 14.2,
+      "p99_ms": 21.49,
+      "memory_mb": 66.1,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "REJECT": 1203,
+        "DUPLICATE_HINT": 10970,
+        "PASS": 27
+      }
+    },
+    {
+      "elapsed_s": 130.2,
+      "throughput_rps": 1209.1,
+      "p50_ms": 14.42,
+      "p99_ms": 22.2,
+      "memory_mb": 66.2,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "REJECT": 1143,
+        "DUPLICATE_HINT": 10930,
+        "PASS": 27
+      }
+    },
+    {
+      "elapsed_s": 140.2,
+      "throughput_rps": 1197.8,
+      "p50_ms": 14.36,
+      "p99_ms": 25.33,
+      "memory_mb": 66.2,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "DUPLICATE_HINT": 10765,
+        "REJECT": 1218,
+        "PASS": 17
+      }
+    },
+    {
+      "elapsed_s": 150.2,
+      "throughput_rps": 1131.2,
+      "p50_ms": 14.61,
+      "p99_ms": 29.18,
+      "memory_mb": 66.3,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "DUPLICATE_HINT": 10228,
+        "REJECT": 1072,
+        "PASS": 25
+      }
+    },
+    {
+      "elapsed_s": 160.2,
+      "throughput_rps": 1320.6,
+      "p50_ms": 13.42,
+      "p99_ms": 18.42,
+      "memory_mb": 66.4,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "REJECT": 1344,
+        "DUPLICATE_HINT": 11846,
+        "PASS": 35
+      }
+    },
+    {
+      "elapsed_s": 170.2,
+      "throughput_rps": 1326.7,
+      "p50_ms": 13.26,
+      "p99_ms": 20.45,
+      "memory_mb": 66.4,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "REJECT": 1346,
+        "DUPLICATE_HINT": 11899,
+        "PASS": 30
+      }
+    },
+    {
+      "elapsed_s": 180.2,
+      "throughput_rps": 1318.2,
+      "p50_ms": 13.26,
+      "p99_ms": 20.82,
+      "memory_mb": 66.5,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "REJECT": 1344,
+        "DUPLICATE_HINT": 11834,
+        "PASS": 22
+      }
+    },
+    {
+      "elapsed_s": 190.2,
+      "throughput_rps": 1351.2,
+      "p50_ms": 12.95,
+      "p99_ms": 20.12,
+      "memory_mb": 66.5,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "DUPLICATE_HINT": 12088,
+        "REJECT": 1412,
+        "PASS": 25
+      }
+    },
+    {
+      "elapsed_s": 200.2,
+      "throughput_rps": 1329.5,
+      "p50_ms": 13.14,
+      "p99_ms": 20.49,
+      "memory_mb": 66.6,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "DUPLICATE_HINT": 11975,
+        "REJECT": 1298,
+        "PASS": 27
+      }
+    },
+    {
+      "elapsed_s": 210.3,
+      "throughput_rps": 1333.4,
+      "p50_ms": 13.21,
+      "p99_ms": 19.6,
+      "memory_mb": 66.6,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "DUPLICATE_HINT": 12008,
+        "REJECT": 1321,
+        "PASS": 21
+      }
+    },
+    {
+      "elapsed_s": 220.3,
+      "throughput_rps": 1329.9,
+      "p50_ms": 13.04,
+      "p99_ms": 20.05,
+      "memory_mb": 66.6,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "REJECT": 1299,
+        "DUPLICATE_HINT": 11975,
+        "PASS": 26
+      }
+    },
+    {
+      "elapsed_s": 230.3,
+      "throughput_rps": 1340.4,
+      "p50_ms": 13.08,
+      "p99_ms": 19.65,
+      "memory_mb": 66.6,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "DUPLICATE_HINT": 12137,
+        "REJECT": 1271,
+        "PASS": 17
+      }
+    },
+    {
+      "elapsed_s": 240.3,
+      "throughput_rps": 1325.0,
+      "p50_ms": 13.19,
+      "p99_ms": 21.19,
+      "memory_mb": 66.6,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "DUPLICATE_HINT": 11949,
+        "REJECT": 1300,
+        "PASS": 26
+      }
+    },
+    {
+      "elapsed_s": 250.3,
+      "throughput_rps": 1288.6,
+      "p50_ms": 13.28,
+      "p99_ms": 21.81,
+      "memory_mb": 66.7,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "DUPLICATE_HINT": 11499,
+        "REJECT": 1382,
+        "PASS": 19
+      }
+    },
+    {
+      "elapsed_s": 260.3,
+      "throughput_rps": 1254.4,
+      "p50_ms": 13.44,
+      "p99_ms": 22.53,
+      "memory_mb": 66.7,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "REJECT": 1226,
+        "DUPLICATE_HINT": 11300,
+        "PASS": 24
+      }
+    },
+    {
+      "elapsed_s": 270.3,
+      "throughput_rps": 1279.4,
+      "p50_ms": 13.41,
+      "p99_ms": 19.94,
+      "memory_mb": 66.7,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "REJECT": 1278,
+        "DUPLICATE_HINT": 11500,
+        "PASS": 22
+      }
+    },
+    {
+      "elapsed_s": 280.3,
+      "throughput_rps": 1329.3,
+      "p50_ms": 13.15,
+      "p99_ms": 20.33,
+      "memory_mb": 66.7,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "DUPLICATE_HINT": 11960,
+        "REJECT": 1317,
+        "PASS": 23
+      }
+    },
+    {
+      "elapsed_s": 290.3,
+      "throughput_rps": 1344.5,
+      "p50_ms": 12.95,
+      "p99_ms": 19.33,
+      "memory_mb": 66.7,
+      "telemetry_backlog": 0,
+      "errors": 0,
+      "decisions": {
+        "DUPLICATE_HINT": 12067,
+        "REJECT": 1361,
+        "PASS": 22
+      }
+    }
+  ]
+}

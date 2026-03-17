@@ -1,0 +1,118 @@
+[
+  {
+    "timestamp": "2026-03-16T23:38:29.757274+00:00",
+    "redis_mode": "real (redis://localhost:6379)",
+    "n_leads": 2000,
+    "concurrency": 10,
+    "duration_s": 5.718,
+    "throughput_rps": 349.8,
+    "errors": 0,
+    "decisions": {
+      "REJECT": 200,
+      "PASS": 1001,
+      "WARN": 300,
+      "DUPLICATE_HINT": 499
+    },
+    "latency_ms": {
+      "p50": 21.91,
+      "p90": 37.35,
+      "p95": 40.4,
+      "p99": 82.33,
+      "mean": 25.49,
+      "max": 164.61
+    },
+    "memory_mb": {
+      "start": 0.0,
+      "peak": 13.65,
+      "growth": 13.65
+    },
+    "telemetry_queue_at_end": 2000
+  },
+  {
+    "timestamp": "2026-03-16T23:38:36.001974+00:00",
+    "redis_mode": "real (redis://localhost:6379)",
+    "n_leads": 2000,
+    "concurrency": 50,
+    "duration_s": 6.201,
+    "throughput_rps": 322.5,
+    "errors": 0,
+    "decisions": {
+      "PASS": 1006,
+      "REJECT": 200,
+      "WARN": 300,
+      "DUPLICATE_HINT": 494
+    },
+    "latency_ms": {
+      "p50": 104.47,
+      "p90": 195.19,
+      "p95": 226.43,
+      "p99": 505.13,
+      "mean": 132.69,
+      "max": 730.14
+    },
+    "memory_mb": {
+      "start": 0.0,
+      "peak": 20.6,
+      "growth": 20.6
+    },
+    "telemetry_queue_at_end": 2000
+  },
+  {
+    "timestamp": "2026-03-16T23:38:43.029342+00:00",
+    "redis_mode": "real (redis://localhost:6379)",
+    "n_leads": 2000,
+    "concurrency": 100,
+    "duration_s": 6.979,
+    "throughput_rps": 286.6,
+    "errors": 0,
+    "decisions": {
+      "PASS": 1004,
+      "WARN": 300,
+      "REJECT": 200,
+      "DUPLICATE_HINT": 496
+    },
+    "latency_ms": {
+      "p50": 206.38,
+      "p90": 422.83,
+      "p95": 817.58,
+      "p99": 1141.55,
+      "mean": 290.02,
+      "max": 1447.34
+    },
+    "memory_mb": {
+      "start": 0.0,
+      "peak": 30.97,
+      "growth": 30.97
+    },
+    "telemetry_queue_at_end": 2000
+  },
+  {
+    "timestamp": "2026-03-16T23:38:52.578140+00:00",
+    "redis_mode": "real (redis://localhost:6379)",
+    "n_leads": 2000,
+    "concurrency": 200,
+    "duration_s": 9.491,
+    "throughput_rps": 210.7,
+    "errors": 0,
+    "decisions": {
+      "PASS": 1023,
+      "WARN": 300,
+      "REJECT": 200,
+      "DUPLICATE_HINT": 477
+    },
+    "latency_ms": {
+      "p50": 478.64,
+      "p90": 1789.71,
+      "p95": 2316.33,
+      "p99": 2956.74,
+      "mean": 750.55,
+      "max": 3465.44
+    },
+    "memory_mb": {
+      "start": 0.0,
+      "peak": 53.0,
+      "growth": 53.0
+    },
+    "telemetry_queue_at_end": 2000
+  }
+]
