@@ -9,6 +9,12 @@ Deterministic, privacy-safe, tenant-aware ingestion gateway for CRM and marketin
 Lead Entry Guard is designed as a protective ingestion gateway placed in front
 of CRM systems to prevent bad data, duplicate storms and pipeline instability.
 
+**Protects against:**
+- duplicate storms and webhook retry floods
+- malformed phone numbers and inconsistent lead formats
+- partial payloads and missing required fields
+- CRM ingestion instability under high concurrency
+
 ---
 
 ## Why Lead Entry Guard
@@ -22,6 +28,25 @@ slowly poison downstream systems.
 
 Lead Entry Guard acts as a deterministic ingestion gateway that protects
 CRM pipelines before bad data can enter the system.
+
+```
+Problem                      Protection
+─────────────────────────────────────────────────────
+Retry storms                 →  Idempotency layer
+  (webhook retries,               same source_id = same result
+   API gateway floods,            no duplicate downstream writes
+   double-click imports)
+
+Duplicate leads              →  Bloom + Redis detection
+  (re-uploads, CRM sync,          HMAC fingerprint per tenant
+   data broker imports)           deterministic identity signal
+
+Data quality issues          →  Validation + SalvagePolicy
+  (invalid phones,                fatal errors → REJECT
+   malformed emails,              recoverable errors → WARN or REJECT
+   partial payloads)              per-tenant policy (STRICT / SALVAGE)
+─────────────────────────────────────────────────────
+```
 
 ---
 
@@ -63,11 +88,17 @@ Policy / Scoring Engine
 ## Installation
 
 ```bash
-# development + tests
-pip install -e ".[dev]"
+# Clone
+git clone https://github.com/jirisach/lead-entry-guard
+cd lead-entry-guard
 
-# load tests
-pip install -e ".[dev]" && pip install aiohttp
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate        # Linux/macOS
+.venv\Scripts\activate           # Windows
+
+# Install — development + tests + benchmarks
+pip install -e ".[dev,benchmark]"
 ```
 
 ---
@@ -129,25 +160,52 @@ See `docs/testing/benchmark_100k_baseline.md` for full results and methodology.
 
 ---
 
-## Performance snapshot
+## Reliability testing
 
-Lead Entry Guard was tested against **100,000 messy leads** simulating real CRM ingestion conditions:
+Lead Entry Guard includes a comprehensive reliability test suite covering correctness, resilience, and long-running stability:
 
-- duplicate storms
-- malformed phone numbers
-- retries and partial payloads
-- inconsistent formatting
+| Layer | Tests | What it covers |
+|---|---|---|
+| Unit | 39 | Normalization, fingerprint determinism, policy rules, salvage layer |
+| Integration | 32 | End-to-end pipeline flow, idempotency, tenant isolation, replay suite |
+| Resilience | 13 | Redis failures, Bloom failures, slow downstream, degraded modes |
+| Chaos | 9 | Multi-component failure, HMAC race conditions, reconciliation spikes |
+| Load | 6 | Retry storms (300 concurrent), ingestion burst (1,000 leads), jitter storm |
+| **Total** | **~99** | |
 
-**Results**
+Key reliability properties validated:
 
-- Throughput: **~1,300 leads/sec**
-- Latency p50: **0.71 ms**
-- Latency p95: **0.97 ms**
-- Latency p99: **1.19 ms**
-- Strict accuracy (clean / broken / exact-duplicate): **100%**
+- **Determinism** — same input always produces same decision, regardless of concurrency
+- **Idempotency** — same `source_id` always returns same decision on replay
+- **Tenant isolation** — fingerprint namespaces and decisions are fully scoped per tenant
+- **Graceful degradation** — Redis down, Bloom down, slow downstream all handled without crash
+- **Retry storm safety** — 300 concurrent retries of same lead produce identical outcome
 
-The benchmark intentionally prioritizes **false-positive safety** —
-valid leads should not be blocked during ingestion.
+Soak tests validate stability over time: memory growth, throughput drift, and telemetry backlog are monitored across multi-minute runs.
+
+See `docs/testing/` for full test inventory and benchmark methodology.
+
+---
+
+## Example decision
+
+A lead with a valid email but an invalid phone number, under a SALVAGE tenant policy:
+
+```json
+{
+  "decision": "WARN",
+  "reason_codes": ["WARN_INVALID_OPTIONAL_PHONE"],
+  "duplicate_hint": null,
+  "duplicate_check_skipped": false,
+  "versions": {
+    "policy_version": "v1",
+    "ruleset_version": "v1",
+    "config_version": "v1"
+  }
+}
+```
+
+Possible decisions: `PASS` · `WARN` · `REJECT` · `DUPLICATE_HINT`
 
 ---
 
