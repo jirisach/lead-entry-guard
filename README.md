@@ -1,6 +1,6 @@
 # Lead Entry Guard
 
-![Python](https://img.shields.io/badge/python-3.12-blue)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
 ![Benchmark](https://img.shields.io/badge/benchmark-100k%20leads-blue)
 
@@ -46,6 +46,50 @@ Data quality issues          →  Validation + SalvagePolicy
    malformed emails,              recoverable errors → WARN or REJECT
    partial payloads)              per-tenant policy (STRICT / SALVAGE)
 ─────────────────────────────────────────────────────
+```
+
+
+---
+
+## Quickstart
+
+```bash
+docker compose up
+```
+
+Send a lead:
+
+```bash
+curl -X POST http://localhost:8000/v1/leads/ingest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tenant_id": "t1",
+    "source_id": "demo-1",
+    "email": "demo@example.com",
+    "phone": "+12025550123"
+  }'
+```
+
+Response:
+
+```json
+{
+  "decision": "PASS",
+  "reason_codes": [],
+  "duplicate_check_skipped": false,
+  "versions": {
+    "policy_version": "v1",
+    "ruleset_version": "v1",
+    "config_version": "v1"
+  }
+}
+```
+
+Check health:
+
+```bash
+curl http://localhost:8000/ready
+curl http://localhost:8000/health
 ```
 
 ---
@@ -183,7 +227,7 @@ Key reliability properties validated:
 
 Soak tests validate stability over time: memory growth, throughput drift, and telemetry backlog are monitored across multi-minute runs.
 
-See `docs/testing/` for full test inventory and benchmark methodology.
+See `docs/testing/TEST_COVERAGE.md` for full benchmark and reliability report.
 
 ---
 
