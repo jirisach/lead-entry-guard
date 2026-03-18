@@ -50,6 +50,8 @@ logs/
 .env
 .env.*
 *.env
+*.secret
+*.secrets
 
 # Klíče a certifikáty
 *.pem
