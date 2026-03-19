@@ -90,7 +90,6 @@ synthetic_data/output/*_manifest.json
 # ==========================================================
 
 benchmark_results/
-load_tests/datasets/
 scale_*_result.json
 hero_benchmark_results*.json
 scale_report.md
