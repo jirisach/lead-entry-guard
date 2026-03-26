@@ -11,12 +11,15 @@ services:
       LEG_VAULT_TOKEN: dev-root-token
       LEG_ENVIRONMENT: development
       LEG_DEBUG: "true"
-      LEG_STATSD_HOST: statsd   # service name, not localhost
+      LEG_STATSD_HOST: statsd
       LEG_STATSD_PORT: "8125"
+      LEG_DATABASE_URL: postgresql+asyncpg://leg:leg@postgres:5432/leg
     depends_on:
       redis:
         condition: service_healthy
       vault:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
 
   redis:
@@ -28,6 +31,22 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: leg
+      POSTGRES_PASSWORD: leg
+      POSTGRES_DB: leg
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U leg -d leg"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   vault:
     image: hashicorp/vault:1.16
@@ -49,3 +68,6 @@ services:
     ports:
       - "8125:8125/udp"
       - "8080:80"
+
+volumes:
+  postgres_data:

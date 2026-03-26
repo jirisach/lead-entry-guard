@@ -37,6 +37,10 @@ from lead_entry_guard.security.vault import (
 )
 from lead_entry_guard.telemetry.exporter import OOBHeartbeat, StatsDClient, TelemetryExporter, TelemetryQueue
 from lead_entry_guard.validation.validator import ValidationLayer
+from lead_entry_guard.api.middleware.auth import require_tenant
+from lead_entry_guard.db.database import get_session, init_db, create_tables
+from lead_entry_guard.db.models import TenantRow
+from lead_entry_guard.db.tenant_store import ApiKeyInvalidError, TenantNotFoundError, TenantStore
 
 logger = logging.getLogger(__name__)
 
@@ -256,6 +260,9 @@ class Container:
 
     async def startup(self) -> None:
         _configure_logging()
+
+        # Fail fast on missing production-critical config — before any I/O
+        self.settings.validate_production_requirements()
 
         # ── Telemetry (independent of Redis / vault) ──────────────────────
         self.statsd = StatsDClient(
@@ -533,7 +540,13 @@ async def _handle_unexpected(request: Request, exc: Exception) -> JSONResponse:
 # ── Request / Response schemas ───────────────────────────────────────────────
 
 class IngestRequest(BaseModel):
-    tenant_id: str
+    """
+    Lead ingestion payload.
+
+    tenant_id is intentionally absent — derived exclusively from the
+    authenticated API key (ADR-007). Accepting tenant_id from the body
+    would allow any key holder to write into another tenant's namespace.
+    """
     source_id: str | None = None
     source_type: SourceType = SourceType.API
     email: str | None = None
@@ -560,12 +573,18 @@ class IngestResponse(BaseModel):
 
 @app.post("/v1/leads/ingest", response_model=IngestResponse, status_code=status.HTTP_200_OK)
 async def ingest_lead(
+    request: Request,
     body: IngestRequest,
+    tenant: Annotated[TenantRow, Depends(require_tenant)],
     container: Annotated[Container, Depends(get_container)],
 ) -> IngestResponse:
+    """
+    Ingest a lead for the authenticated tenant.
+    Requires X-API-Key header. tenant_id comes from auth, never from body (ADR-007).
+    """
     pipeline = _require_pipeline(container)
     lead = LeadInput(
-        tenant_id=body.tenant_id,
+        tenant_id=tenant.tenant_id,  # authoritative — from auth layer (ADR-007)
         source_id=body.source_id,
         source_type=body.source_type,
         email=body.email,

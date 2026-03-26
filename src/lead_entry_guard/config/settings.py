@@ -80,12 +80,35 @@ class Settings(BaseSettings):
     statsd_port: int = 8125
     heartbeat_interval_seconds: int = 60
 
+    # Database (Phase 3A — tenant store)
+    # Set to None to disable DB features (e.g. in unit tests without Postgres)
+    database_url: str | None = None  # LEG_DATABASE_URL
+
     @field_validator("bloom_target_fpr")
     @classmethod
     def validate_fpr(cls, v: float) -> float:
         if not 0 < v < 1:
             raise ValueError("bloom_target_fpr must be between 0 and 1")
         return v
+
+    def validate_production_requirements(self) -> None:
+        """
+        Fail fast on missing production-critical config.
+
+        Called explicitly at startup — not a pydantic validator because
+        cross-field validation with environment awareness is cleaner here.
+        """
+        if self.environment == "production":
+            if not self.database_url:
+                raise RuntimeError(
+                    "LEG_DATABASE_URL must be set in production. "
+                    "Refusing to start without tenant store."
+                )
+            if not self.vault_token:
+                raise RuntimeError(
+                    "LEG_VAULT_TOKEN must be set in production. "
+                    "Refusing to start without HMAC key source."
+                )
 
 
 _settings: Settings | None = None
