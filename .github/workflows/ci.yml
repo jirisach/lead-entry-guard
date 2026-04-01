@@ -39,7 +39,7 @@ jobs:
       - name: Run fast profile
         run: pytest -q -m "not integration"
         env:
-          LEG_ENVIRONMENT: test
+          LEG_ENVIRONMENT: development
           LEG_TRUSTED_PROXY_IPS: ""
           LEG_SIGNAL_CHECK_WORKERS: "1"
 
@@ -74,6 +74,6 @@ jobs:
       - name: Run integration profile
         run: pytest -q -m "integration"
         env:
-          LEG_ENVIRONMENT: test
+          LEG_ENVIRONMENT: development
           LEG_TRUSTED_PROXY_IPS: ""
           LEG_SIGNAL_CHECK_WORKERS: "1"
