@@ -157,6 +157,36 @@ URL without upstream protection is the same attack surface as a production
 endpoint. Exposing it directly to the internet without a trusted proxy layer
 allows rate limit spoofing via `X-Forwarded-For` and brute-force signal probing.
 
+---
+
+## Public exposure requirement (hard gate)
+
+Before any public exposure — including shared demo links, partner previews, or
+any URL accessible outside a controlled network — `/v1/leads/signal-check` must
+be placed behind upstream protection that provides:
+
+- gateway-level rate limiting (outside process, survives restarts and scales across replicas)
+- basic abuse protection (bot filtering, request throttling)
+- WAF or equivalent request filtering
+- IP reputation or basic anomaly detection
+- request logging at the edge (not just application logs)
+
+**Direct internet exposure without upstream protection is forbidden.**
+
+The in-process `_TokenBucket` rate limiter is sandbox-grade only. It does not
+survive process restarts, does not coordinate across replicas, and can be
+bypassed by spoofing `X-Forwarded-For` without a trusted proxy. It is sufficient
+for local testing and controlled demos. It is not sufficient for any URL that
+can be reached by an untrusted party.
+
+Abuse scenarios that upstream protection must address:
+- **Enumeration** — probing signal rules by iterating over inputs
+- **Scripted replay** — automated scenario scanning at high volume
+- **Probing** — mapping internal signal logic via response observation
+- **Resource exhaustion** — flooding the in-process executor queue
+
+See `docs/security/SECURITY-NOTES.md` for the public demo checklist.
+
 **If scope guard is violated:**
 Adding DB access, auth, or write side effects converts this endpoint into an
 implicit ingest surface without the safety contracts of the real ingest pipeline.

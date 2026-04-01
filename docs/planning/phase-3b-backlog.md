@@ -203,3 +203,33 @@ If any of these appears in a 3B PR, it must be challenged against the phase gate
 - ADR-008 — Signals must be actionable (normative source)
 - ADR-002 — Degraded mode policy separation
 - ADR-007 — Tenant identity from auth only
+
+---
+
+## Post-3B — Public demo exposure hardening
+
+**Epic:** Signal Check public exposure hardening  
+**Trigger:** Before any public URL for `/v1/leads/signal-check` is shared externally  
+**Status:** Blocked — preconditions not met  
+**Reference:** ADR-010, `docs/security/SECURITY-NOTES.md`
+
+### Why this is a hard gate, not a nice-to-have
+
+The in-process rate limiter is sandbox-grade. Direct public exposure without
+upstream protection enables enumeration, scripted probing, and resource exhaustion.
+A publicly shared demo link without gateway protection is the same attack surface
+as a production endpoint.
+
+### Tasks (implement in order)
+
+1. **Gateway / reverse proxy** — nginx, Cloudflare, or cloud API gateway in front of signal-check
+2. **Gateway-level rate limiting** — outside process, per-IP and per-ASN
+3. **WAF rules** — bot filtering, request size limits, header validation
+4. **IP reputation filtering** — block known abuse sources at edge
+5. **Edge request logging** — structured logs at proxy layer with retention
+6. **Distributed rate limiter** — replace `_TokenBucket` with Redis-backed limiter
+7. **Firewall rule** — ensure app port is not directly reachable from internet
+
+**Do not share a public demo link until items 1–3 are complete.**
+
+See `docs/security/SECURITY-NOTES.md` for the full checklist.
