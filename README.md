@@ -1,7 +1,7 @@
 # Lead Entry Guard
 
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
-![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
+![CI](https://github.com/jirisach/lead-entry-guard/actions/workflows/ci.yml/badge.svg)
 ![Benchmark](https://img.shields.io/badge/benchmark-100k%20leads-blue)
 
 Deterministic, privacy-safe, tenant-aware ingestion gateway for CRM and marketing pipelines.
@@ -94,6 +94,52 @@ curl http://localhost:8000/health
 
 ---
 
+## Signal Check API
+
+Deterministic signal sandbox — evaluates domain trust, source conflict, and shared inbox rules without auth, persistence, or side effects. Designed for demo, design partner validation, and scenario testing.
+
+```bash
+curl -X POST http://localhost:8000/v1/leads/signal-check \
+  -H "Content-Type: application/json" \
+  -d '{
+    "scenario_id": "demo-1",
+    "email": "info@spammy.xyz",
+    "fields": [
+      {"field_name": "phone", "source_type": "manual", "value": "+420777111000"},
+      {"field_name": "phone", "source_type": "enrichment", "value": "+420999888777"}
+    ]
+  }'
+```
+
+Response:
+
+```json
+{
+  "request_id": "...",
+  "scenario_id": "demo-1",
+  "status": "flagged",
+  "has_signals": true,
+  "signal_count": 3,
+  "signals": [
+    {"code": "shared_inbox", "action": "accept_low_quality", "signal_class": "informational", ...},
+    {"code": "source_conflict_manual_vs_enrichment", "action": "preserve_manual_value", "signal_class": "critical", ...},
+    {"code": "suspicious_domain", "action": "accept_with_flag", "signal_class": "informational", ...}
+  ],
+  "latency_ms": 0.8
+}
+```
+
+`status: "clean"` means no signals fired — not an error. Signals are sorted alphabetically by code — same input always produces same response.
+
+Rate limited: 30 requests / 60 seconds per IP. Configure via env:
+
+```env
+LEG_TRUSTED_PROXY_IPS=       # comma-separated trusted proxy IPs (empty = use direct connection IP)
+LEG_SIGNAL_CHECK_WORKERS=1   # evaluation thread pool size (increase before higher traffic)
+```
+
+---
+
 ## Architecture
 
 ```
@@ -161,10 +207,37 @@ docker compose up
 
 ## Tests
 
-```bash
-# Unit + Integration + Resilience
-pytest tests/unit tests/integration tests/resilience -v
+Three run profiles — choose based on context:
 
+```bash
+# Fast — unit + contract tests, no app lifecycle overhead (~seconds)
+# Use on every commit and in pre-push hooks
+pytest -q -m "not integration"
+
+# Integration — full app lifecycle tests (DB, lifespan, shutdown hooks)
+# Use before merging features that touch app startup/shutdown
+pytest -q -m "integration"
+
+# Full — everything, use before release and after significant refactors
+pytest -q
+```
+
+Profile contents:
+
+| Profile | What runs | When to use |
+|---|---|---|
+| `fast` | unit + contract | every commit |
+| `integration` | integration only (lifespan, DB) | before merge if app layer changed |
+| `full` | everything | before release |
+
+Phase gate — must pass before every merge:
+
+```bash
+# Contract tests are in the fast profile but worth calling out explicitly
+pytest -q tests/contract/
+```
+
+```bash
 # Chaos tests
 pytest tests/chaos -v
 ```

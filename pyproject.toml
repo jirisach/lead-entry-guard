@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "lead-entry-guard"
 version = "4.0.0"
 description = "Real-time ingestion gateway for CRM and marketing pipelines"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.111.0",
     "uvicorn[standard]>=0.29.0",
@@ -51,11 +51,23 @@ benchmark = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "integration: marks tests as integration tests (full app lifecycle, DB, lifespan). Excluded from fast profile.",
+    "contract: marks tests as contract/phase-gate tests. No heavy dependencies — runs in fast and full profiles.",
+]
+# Three run profiles:
+#   fast        pytest -q -m "not integration"   — unit + contract, no lifespan overhead
+#   integration pytest -q -m "integration"       — integration tests only
+#   full        pytest -q                         — everything, use before merge/release
+#
+# Note: contract tests are NOT in the integration profile — they have no
+# integration marker. Contract tests run in fast and full only.
+addopts = ""
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py313"
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.13"
 strict = true

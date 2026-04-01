@@ -41,6 +41,10 @@ from lead_entry_guard.api.middleware.auth import require_tenant
 from lead_entry_guard.db.database import get_session, init_db, create_tables
 from lead_entry_guard.db.models import TenantRow
 from lead_entry_guard.db.tenant_store import ApiKeyInvalidError, TenantNotFoundError, TenantStore
+from lead_entry_guard.api.routers.signal_check import (
+    router as signal_check_router,
+    shutdown_executor as shutdown_signal_check_executor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -455,6 +459,7 @@ async def lifespan(app: FastAPI):  # type: ignore[type-arg]
     )
     yield
     await _container.shutdown()
+    shutdown_signal_check_executor()  # clean up signal-check thread pool
     logger.info("Lead Entry Guard stopped")
 
 
@@ -464,6 +469,8 @@ app = FastAPI(
     description="Real-time ingestion gateway for CRM and marketing pipelines",
     lifespan=lifespan,
 )
+
+app.include_router(signal_check_router)
 
 
 # ── Global exception handlers ─────────────────────────────────────────────────
