@@ -36,6 +36,8 @@ import logging
 import time
 from datetime import datetime, timezone, timedelta
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 
@@ -44,7 +46,8 @@ from lead_entry_guard.core.review_event import (
     ReviewEventStore,
     create_human_review_event,
 )
-from lead_entry_guard.api.auth import require_tenant
+from lead_entry_guard.db.models import TenantRow
+from lead_entry_guard.api.middleware.auth import require_tenant
 
 logger = logging.getLogger(__name__)
 
@@ -123,9 +126,9 @@ class ReviewEventResponse(BaseModel):
         "One human outcome per fingerprint per tenant."
     ),
 )
-def submit_review_event(
+async def submit_review_event(
     body: ReviewEventRequest,
-    tenant: dict = Depends(require_tenant),
+    tenant: Annotated[TenantRow, Depends(require_tenant)],
 ) -> ReviewEventResponse:
     """
     Submit a human review outcome for a compound-routed lead.
@@ -145,8 +148,8 @@ def submit_review_event(
       422: request body validation failure
     """
     t_start = time.monotonic()
-    tenant_id: str = tenant["tenant_id"]
-    actor: str = tenant.get("actor_role", "api_caller")
+    tenant_id: str = tenant.tenant_id
+    actor: str = "api_caller"  # v1: fixed role; future: per-key role from TenantConfig
 
     # Validate expires_at is not in the past
     now = datetime.now(timezone.utc)
@@ -183,12 +186,22 @@ def submit_review_event(
     try:
         _store.append(event)
     except ValueError as exc:
+        msg = str(exc)
+        # Tenant mismatch via pending_id — isolation violation, not a duplicate
+        if "Tenant mismatch" in msg or "Cross-tenant" in msg:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": "TENANT_MISMATCH",
+                    "message": "Cross-tenant pending_id resolution is not allowed.",
+                },
+            ) from exc
         # Duplicate human event for this fingerprint
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
                 "error": "REVIEW_EVENT_ALREADY_EXISTS",
-                "message": str(exc),
+                "message": msg,
             },
         ) from exc
 

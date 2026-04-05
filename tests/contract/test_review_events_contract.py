@@ -36,8 +36,8 @@ import pytest
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
-from review_events_router import router, _store, ReviewEventStore
-from review_event import ReviewAction, create_pending_review
+from lead_entry_guard.api.review_events_router import router, _store, ReviewEventStore
+from lead_entry_guard.core.review_event import ReviewAction, create_pending_review
 
 
 # ── Test app setup ────────────────────────────────────────────────────────────
@@ -84,7 +84,7 @@ def _build_app(store: ReviewEventStore | None = None) -> tuple[FastAPI, TestClie
       - require_tenant overridden with mock returning TENANT_ID
       - optional custom store injected (for isolation between duplicate tests)
     """
-    import review_events_router as rev_module
+    import lead_entry_guard.api.review_events_router as rev_module
 
     app = FastAPI()
 
@@ -144,7 +144,7 @@ class TestValidActions:
 
     def setup_method(self):
         """Fresh store per test — no state leakage."""
-        import review_events_router as m
+        import lead_entry_guard.api.review_events_router as m
         m._store = ReviewEventStore()
 
     def _client(self) -> TestClient:
@@ -153,7 +153,7 @@ class TestValidActions:
 
     @pytest.mark.parametrize("action", ["accept", "reject", "reassign"])
     def test_valid_action_returns_201(self, action: str) -> None:
-        import review_events_router as m
+        import lead_entry_guard.api.review_events_router as m
         m._store = ReviewEventStore()
         _, client = _build_app()
         r = client.post(URL, json=valid_payload(
@@ -165,7 +165,7 @@ class TestValidActions:
         )
 
     def test_response_has_review_id(self) -> None:
-        import review_events_router as m
+        import lead_entry_guard.api.review_events_router as m
         m._store = ReviewEventStore()
         _, client = _build_app()
         r = client.post(URL, json=valid_payload())
@@ -173,28 +173,28 @@ class TestValidActions:
         assert r.json()["review_id"], "review_id must not be empty"
 
     def test_response_has_fingerprint_id(self) -> None:
-        import review_events_router as m
+        import lead_entry_guard.api.review_events_router as m
         m._store = ReviewEventStore()
         _, client = _build_app()
         r = client.post(URL, json=valid_payload(fingerprint_id="fp_shape_check"))
         assert r.json()["fingerprint_id"] == "fp_shape_check"
 
     def test_response_has_action(self) -> None:
-        import review_events_router as m
+        import lead_entry_guard.api.review_events_router as m
         m._store = ReviewEventStore()
         _, client = _build_app()
         r = client.post(URL, json=valid_payload(action="reassign", fingerprint_id="fp_action"))
         assert r.json()["action"] == "reassign"
 
     def test_response_has_recorded_at(self) -> None:
-        import review_events_router as m
+        import lead_entry_guard.api.review_events_router as m
         m._store = ReviewEventStore()
         _, client = _build_app()
         r = client.post(URL, json=valid_payload())
         assert "recorded_at" in r.json(), "response must contain recorded_at"
 
     def test_response_has_low_insight(self) -> None:
-        import review_events_router as m
+        import lead_entry_guard.api.review_events_router as m
         m._store = ReviewEventStore()
         _, client = _build_app()
         r = client.post(URL, json=valid_payload(reason=None))
@@ -203,7 +203,7 @@ class TestValidActions:
         assert data["low_insight"] is True  # no reason → low_insight
 
     def test_reason_present_sets_low_insight_false(self) -> None:
-        import review_events_router as m
+        import lead_entry_guard.api.review_events_router as m
         m._store = ReviewEventStore()
         _, client = _build_app()
         r = client.post(URL, json=valid_payload(reason="valid SMB lead"))
@@ -230,7 +230,7 @@ class TestSystemActionBlocked:
         the handler runs, so it is an input validation failure (422),
         not a business logic failure (400).
         """
-        import review_events_router as m
+        import lead_entry_guard.api.review_events_router as m
         m._store = ReviewEventStore()
         _, client = _build_app()
 
@@ -240,7 +240,7 @@ class TestSystemActionBlocked:
         )
 
     def test_expired_no_review_error_message(self) -> None:
-        import review_events_router as m
+        import lead_entry_guard.api.review_events_router as m
         m._store = ReviewEventStore()
         _, client = _build_app()
 
@@ -263,7 +263,7 @@ class TestExpiresAtInPast:
     """
 
     def test_past_expires_at_returns_400(self) -> None:
-        import review_events_router as m
+        import lead_entry_guard.api.review_events_router as m
         m._store = ReviewEventStore()
         _, client = _build_app()
 
@@ -273,7 +273,7 @@ class TestExpiresAtInPast:
         )
 
     def test_past_expires_at_error_code(self) -> None:
-        import review_events_router as m
+        import lead_entry_guard.api.review_events_router as m
         m._store = ReviewEventStore()
         _, client = _build_app()
 
@@ -284,7 +284,7 @@ class TestExpiresAtInPast:
 
     def test_future_expires_at_passes(self) -> None:
         """Regression guard — future expires_at must not be rejected."""
-        import review_events_router as m
+        import lead_entry_guard.api.review_events_router as m
         m._store = ReviewEventStore()
         _, client = _build_app()
 
@@ -359,7 +359,7 @@ class TestTrustModel:
         Injecting tenant_id into the body must not affect which tenant
         stores the event. The store always uses the auth-resolved tenant_id.
         """
-        import review_events_router as m
+        import lead_entry_guard.api.review_events_router as m
         m._store = ReviewEventStore()
         _, client = _build_app()
 
@@ -384,7 +384,7 @@ class TestTrustModel:
         actor in body must not override the server-resolved actor.
         ReviewEventResponse does not echo actor — it is internal.
         """
-        import review_events_router as m
+        import lead_entry_guard.api.review_events_router as m
         m._store = ReviewEventStore()
         _, client = _build_app()
 
@@ -409,7 +409,7 @@ class TestTrustModel:
         ReviewEventResponse must not include tenant_id.
         It is an internal field — not part of the public response contract.
         """
-        import review_events_router as m
+        import lead_entry_guard.api.review_events_router as m
         m._store = ReviewEventStore()
         _, client = _build_app()
 
