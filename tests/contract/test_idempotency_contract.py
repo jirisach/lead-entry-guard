@@ -349,13 +349,17 @@ class TestRejectSnapshotPersistenceAndReplay:
         the caller's opt-in for transport-retry protection.
         """
         pipeline = await _build_pipeline(salvage_policy=SalvagePolicy.STRICT)
-        lead = LeadInput(
-            tenant_id="t1",
-            # No source_id — idempotency opt-out
-            email="not-an-email",
-        )
-        r1 = await pipeline.process(lead)
-        r2 = await pipeline.process(lead)
+
+        # Two separate LeadInput objects with identical payload but no source_id.
+        # Each object gets its own request_id at construction time (default_factory=uuid4).
+        # Without source_id, the pipeline runs the full decision path for each —
+        # no snapshot is stored or replayed, so request_ids must differ.
+        # Using one object twice would recycle its request_id and prove nothing.
+        lead1 = LeadInput(tenant_id="t1", email="not-an-email")
+        lead2 = LeadInput(tenant_id="t1", email="not-an-email")
+
+        r1 = await pipeline.process(lead1)
+        r2 = await pipeline.process(lead2)
 
         assert r2.request_id != r1.request_id, (
             "Without source_id, repeated submissions must produce different request_ids.\n"
