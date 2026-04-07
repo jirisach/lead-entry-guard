@@ -4,16 +4,10 @@
 ![CI](https://github.com/jirisach/lead-entry-guard/actions/workflows/ci.yml/badge.svg)
 ![Benchmark](https://img.shields.io/badge/benchmark-100k%20leads-blue)
 
-Deterministic, privacy-safe, tenant-aware ingestion gateway for CRM and marketing pipelines.
+Decide what becomes data before it enters your CRM.
 
-Lead Entry Guard is designed as a protective ingestion gateway placed in front
-of CRM systems to prevent bad data, duplicate storms and pipeline instability.
-
-**Protects against:**
-- duplicate storms and webhook retry floods
-- malformed phone numbers and inconsistent lead formats
-- partial payloads and missing required fields
-- CRM ingestion instability under high concurrency
+Lead Entry Guard is a signal-aware ingestion layer placed in front of CRM systems.
+It detects patterns at entry, evaluates their frequency and downstream impact, and turns only the ones that consistently create friction into enforceable decisions.
 
 ---
 
@@ -23,31 +17,86 @@ Most CRM problems don't start in the CRM.
 
 They start at ingestion.
 
-Duplicate submissions, malformed phones, retries and partial payloads
-slowly poison downstream systems.
+Duplicate submissions, conflicting sources, shared inboxes, and malformed inputs
+slowly poison downstream systems. By the time the problem shows up in routing or
+reporting, it's already hard to fix cleanly.
 
-Lead Entry Guard acts as a deterministic ingestion gateway that protects
-CRM pipelines before bad data can enter the system.
+Most systems react after data enters. Lead Entry Guard shifts this earlier.
+
+Instead of defining rules upfront or relying on manual review, it observes what
+happens at entry: which patterns repeat, which ones create friction, and which ones
+impact routing or reporting. Only then are those patterns turned into enforceable
+decisions.
 
 ```
-Problem                      Protection
-─────────────────────────────────────────────────────
-Retry storms                 →  Idempotency layer
-  (webhook retries,               same source_id = same result
-   API gateway floods,            no duplicate downstream writes
+Problem                         Protection
+──────────────────────────────────────────────────────────────
+Retry storms                    →  Idempotency layer
+  (webhook retries,                  same source_id = same result
+   API gateway floods,               no duplicate downstream writes
    double-click imports)
 
-Duplicate leads              →  Bloom + Redis detection
-  (re-uploads, CRM sync,          HMAC fingerprint per tenant
-   data broker imports)           deterministic identity signal
+Duplicate leads                 →  Bloom + Redis detection
+  (re-uploads, CRM sync,             HMAC fingerprint per tenant
+   data broker imports)              deterministic identity signal
 
-Data quality issues          →  Validation + SalvagePolicy
-  (invalid phones,                fatal errors → REJECT
-   malformed emails,              recoverable errors → WARN or REJECT
-   partial payloads)              per-tenant policy (STRICT / SALVAGE)
-─────────────────────────────────────────────────────
+Data quality issues             →  Validation + SalvagePolicy
+  (invalid phones,                   fatal errors → REJECT
+   malformed emails,                 recoverable errors → WARN or REJECT
+   partial payloads)                 per-tenant policy (STRICT / SALVAGE)
+
+Ambiguous signals               →  Signal layer (A3, A4, A6)
+  (low trust domains,                each signal has action + visibility
+   shared inboxes,                   + fallback — no silent annotations
+   source conflicts)
+
+Co-occurring signals            →  Compound signal evaluation
+  (individually OK,                  pattern fires when signals align
+   together suspicious)              route_for_review, not hard block
+
+Review outcomes                 →  ReviewEvent capture
+  (who acted, what happened,         expired_ratio tracks process health
+   what expired without action)      not just data quality
+──────────────────────────────────────────────────────────────
 ```
 
+---
+
+## How LEG evolves decisions
+
+LEG does not enforce everything immediately. It follows a progression:
+
+**Signals**
+Individual events at entry — duplicate patterns, source conflicts, domain trust
+issues, shared inboxes. Each signal defines an action, a visibility projection,
+and a fallback. No signal is a silent annotation.
+
+**Compound signals**
+When signals co-occur, the system evaluates combinations. A low trust domain
+alone stays informational. Combined with a source conflict, it crosses into
+something that requires a decision.
+
+**Review outcomes**
+When a compound signal fires, the lead is routed for review. The reviewer
+decides: accept, reject, or reassign. The outcome is captured — including
+whether the review expired without action.
+
+**Pattern learning**
+Expired reviews, repeated overrides, and recurring rejects surface as process
+signals. If a pattern appears consistently and impacts routing or reporting,
+it becomes a candidate for enforcement at entry.
+
+**Prioritization**
+Not all patterns are enforced. Patterns are evaluated based on frequency,
+downstream impact, and whether they create measurable friction for routing,
+reporting, or rep workflows.
+
+Only patterns that consistently cause problems are promoted to candidate rules.
+
+**Decision at entry**
+Patterns that prove themselves become deterministic actions applied before
+data enters the CRM. The CRM workflow layer shifts from primary defense to
+exception handler.
 
 ---
 
@@ -96,7 +145,9 @@ curl http://localhost:8000/health
 
 ## Signal Check API
 
-Deterministic signal sandbox — evaluates domain trust, source conflict, and shared inbox rules without auth, persistence, or side effects. Designed for demo, design partner validation, and scenario testing.
+Deterministic signal sandbox — evaluates domain trust, source conflict, and shared
+inbox rules without auth, persistence, or side effects. Designed for demo, design
+partner validation, and scenario testing.
 
 ```bash
 curl -X POST http://localhost:8000/v1/leads/signal-check \
@@ -129,14 +180,10 @@ Response:
 }
 ```
 
-`status: "clean"` means no signals fired — not an error. Signals are sorted alphabetically by code — same input always produces same response.
+`status: "clean"` means no signals fired — not an error. Signals are sorted
+alphabetically by code — same input always produces same response.
 
-Rate limited: 30 requests / 60 seconds per IP. Configure via env:
-
-```env
-LEG_TRUSTED_PROXY_IPS=       # comma-separated trusted proxy IPs (empty = use direct connection IP)
-LEG_SIGNAL_CHECK_WORKERS=1   # evaluation thread pool size (increase before higher traffic)
-```
+Rate limited: 30 requests / 60 seconds per IP.
 
 ---
 
@@ -165,6 +212,14 @@ Duplicate Lookup Tier
 Policy / Scoring Engine
 (active + async shadow)
      │
+     ▼
+Signal Layer (A3, A4, A6)
+(domain trust, source conflict, shared inbox)
+     │
+     ▼
+Compound Signal Evaluation
+(co-occurring signals → route_for_review)
+     │
      ├─ Audit Metadata (safe only)
      │
      └─ Async Telemetry Queue
@@ -178,16 +233,13 @@ Policy / Scoring Engine
 ## Installation
 
 ```bash
-# Clone
 git clone https://github.com/jirisach/lead-entry-guard
 cd lead-entry-guard
 
-# Create virtual environment
 python -m venv .venv
 source .venv/bin/activate        # Linux/macOS
 .venv\Scripts\activate           # Windows
 
-# Install — development + tests + benchmarks
 pip install -e ".[dev,benchmark]"
 ```
 
@@ -207,39 +259,27 @@ docker compose up
 
 ## Tests
 
-Three run profiles — choose based on context:
-
 ```bash
-# Fast — unit + contract tests, no app lifecycle overhead (~seconds)
-# Use on every commit and in pre-push hooks
+# Fast — unit + contract tests (~seconds)
 pytest -q -m "not integration"
 
-# Integration — full app lifecycle tests (DB, lifespan, shutdown hooks)
-# Use before merging features that touch app startup/shutdown
+# Integration — full app lifecycle
 pytest -q -m "integration"
 
-# Full — everything, use before release and after significant refactors
+# Full — everything, use before release
 pytest -q
 ```
-
-Profile contents:
 
 | Profile | What runs | When to use |
 |---|---|---|
 | `fast` | unit + contract | every commit |
-| `integration` | integration only (lifespan, DB) | before merge if app layer changed |
+| `integration` | integration only | before merge if app layer changed |
 | `full` | everything | before release |
 
 Phase gate — must pass before every merge:
 
 ```bash
-# Contract tests are in the fast profile but worth calling out explicitly
 pytest -q tests/contract/
-```
-
-```bash
-# Chaos tests
-pytest tests/chaos -v
 ```
 
 ---
@@ -247,17 +287,10 @@ pytest tests/chaos -v
 ## Load tests & benchmarks
 
 ```bash
-# Hero benchmark — 100k messy leads
 python load_tests/hero_benchmark.py
-
-# Failure scenarios
 python load_tests/scale_scenarios.py --scenario all --output
-
-# Generate report
 python load_tests/generate_report.py
 ```
-
-See `docs/testing/` for full benchmark documentation.
 
 ### Benchmark baseline — 100,000 messy leads
 
@@ -267,19 +300,15 @@ See `docs/testing/` for full benchmark documentation.
 | Latency p50 | 0.71 ms |
 | Latency p95 | 0.97 ms |
 | Latency p99 | 1.19 ms |
-| Strict accuracy (clean / broken / exact-duplicate) | **100%** |
+| Strict accuracy | **100%** |
 | Strict false positives | **0** |
 
 Lead Entry Guard prioritizes false-positive safety. In ambiguous cases the
 system prefers PASS over REJECT to ensure valid leads are not blocked.
 
-See `docs/testing/benchmark_100k_baseline.md` for full results and methodology.
-
 ---
 
-## Reliability testing
-
-Lead Entry Guard includes a comprehensive reliability test suite covering correctness, resilience, and long-running stability:
+## Reliability
 
 | Layer | Tests | What it covers |
 |---|---|---|
@@ -287,26 +316,20 @@ Lead Entry Guard includes a comprehensive reliability test suite covering correc
 | Integration | 32 | End-to-end pipeline flow, idempotency, tenant isolation, replay suite |
 | Resilience | 13 | Redis failures, Bloom failures, slow downstream, degraded modes |
 | Chaos | 9 | Multi-component failure, HMAC race conditions, reconciliation spikes |
-| Load | 6 | Retry storms (300 concurrent), ingestion burst (1,000 leads), jitter storm |
+| Load | 6 | Retry storms, ingestion burst, jitter storm |
 | **Total** | **~99** | |
 
-Key reliability properties validated:
+Key properties validated:
 
-- **Determinism** — same input always produces same decision, regardless of concurrency
+- **Determinism** — same input always produces same decision
 - **Idempotency** — same `source_id` always returns same decision on replay
-- **Tenant isolation** — fingerprint namespaces and decisions are fully scoped per tenant
-- **Graceful degradation** — Redis down, Bloom down, slow downstream all handled without crash
-- **Retry storm safety** — 300 concurrent retries of same lead produce identical outcome
-
-Soak tests validate stability over time: memory growth, throughput drift, and telemetry backlog are monitored across multi-minute runs.
-
-See `docs/testing/TEST_COVERAGE.md` for full benchmark and reliability report.
+- **Tenant isolation** — fingerprint namespaces fully scoped per tenant
+- **Graceful degradation** — Redis down, Bloom down, slow downstream all handled
+- **Retry storm safety** — 300 concurrent retries produce identical outcome
 
 ---
 
 ## Example decision
-
-A lead with a valid email but an invalid phone number, under a SALVAGE tenant policy:
 
 ```json
 {
@@ -338,6 +361,8 @@ Possible decisions: `PASS` · `WARN` · `REJECT` · `DUPLICATE_HINT`
 | 6 | Tenant isolation by design |
 | 7 | Async side-effects must never block ingestion |
 | 8 | Privacy-safe observability |
+| 9 | Signals annotate decisions — they do not change them |
+| 10 | Patterns prove themselves before becoming rules |
 
 ---
 
@@ -352,8 +377,6 @@ Possible decisions: `PASS` · `WARN` · `REJECT` · `DUPLICATE_HINT`
 ---
 
 ## Configuration
-
-All runtime parameters are configured via environment variables:
 
 ```env
 LEG_REDIS_URL=redis://localhost:6379/0
@@ -385,11 +408,12 @@ Major design decisions are documented in `docs/architecture/adr/`.
 ```
 src/lead_entry_guard/
  ├─ api/            # FastAPI ingestion layer
+ ├─ core/           # domain models, signal models, review events
  ├─ normalization/  # email / phone normalization
  ├─ validation/     # input validation rules
  ├─ fingerprint/    # HMAC identity builder
  ├─ lookup/         # Bloom + Redis duplicate detection
- ├─ policies/       # decision engine
+ ├─ policies/       # decision engine, signal rules, compound evaluator
  ├─ telemetry/      # async metrics exporter
  ├─ reconciliation/ # recovery / consistency loops
  └─ security/       # key handling / vault integration
@@ -397,29 +421,27 @@ src/lead_entry_guard/
 tests/
  ├─ unit/
  ├─ integration/
+ ├─ contract/       # boundary tests, signal parity, review event contract
  ├─ resilience/
  └─ chaos/
 
-load_tests/
- ├─ hero_benchmark.py
- ├─ scale_scenarios.py
- └─ generate_report.py
-
-synthetic_data/
- ├─ generator/
- └─ analyze_benchmark_accuracy.py
+docs/
+ ├─ architecture/adr/
+ └─ planning/       # signal hypothesis, design notes
 ```
 
 ---
 
 ## Non-goals
 
-Lead Entry Guard intentionally does **not** attempt to:
+Lead Entry Guard intentionally does not:
 
 - store or process raw PII beyond the ingestion boundary
 - replace CRM systems or marketing automation platforms
 - perform heavy enrichment or external data lookups during ingestion
 - guarantee cross-system deduplication outside the configured identity signals
+- score leads or build probabilistic models
+- learn automatically — pattern evolution requires explicit human confirmation
 
-The system focuses strictly on **deterministic ingestion protection** and
-**data quality enforcement at the pipeline boundary**.
+The system focuses on **deterministic ingestion protection** and
+**signal-aware enforcement at the pipeline boundary**.
