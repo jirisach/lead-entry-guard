@@ -16,6 +16,12 @@ Detection rule:
 Odsouhlasená prefix sada (March 2026):
   info, support, sales, contact, hello
 
+Relationship to C3 (false_clarity):
+  A6 fires on shared inbox prefix alone — it is a data observation.
+  C3 fires when shared inbox prefix combines with no company + no enrichment —
+  it is a context conclusion about decision readiness.
+  Both may fire on the same lead. That is correct and intentional.
+
 ADR-008 invariants:
   - Visibility is the minimum consequence.
   - Visibility fields contain no PII.
@@ -59,6 +65,7 @@ SHARED_INBOX_PREFIXES: frozenset[str] = frozenset({
 
 A6_SIGNAL: SignalDefinition = SignalDefinition(
     code="shared_inbox",
+    signal_family="data",
     signal_class=SignalClass.INFORMATIONAL,
     action=SignalAction.ACCEPT_LOW_QUALITY,
     visibility=VisibilityProjection(

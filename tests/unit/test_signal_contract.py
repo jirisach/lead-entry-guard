@@ -53,6 +53,7 @@ def minimal_fallback() -> FallbackPolicy:
 def valid_critical_signal(code: str = "test_signal") -> SignalDefinition:
     return SignalDefinition(
         code=code,
+        signal_family="data",
         signal_class=SignalClass.CRITICAL,
         action=SignalAction.ACCEPT_WITH_FLAG,
         visibility=minimal_visibility(),
@@ -63,6 +64,7 @@ def valid_critical_signal(code: str = "test_signal") -> SignalDefinition:
 def valid_informational_signal(code: str = "test_info_signal") -> SignalDefinition:
     return SignalDefinition(
         code=code,
+        signal_family="data",
         signal_class=SignalClass.INFORMATIONAL,
         action=SignalAction.ACCEPT_LOW_QUALITY,
         visibility=VisibilityProjection(routing_tags=["low_quality"]),
@@ -86,6 +88,7 @@ class TestNegativeInvariants:
         with pytest.raises(ValidationError, match="must define fallback"):
             SignalDefinition(
                 code="no_fallback",
+                signal_family="data",
                 signal_class=SignalClass.CRITICAL,
                 action=SignalAction.ACCEPT_WITH_FLAG,
                 visibility=minimal_visibility(),
@@ -235,6 +238,7 @@ class TestA4SignalDefinition:
     def build_a4_signal(self) -> SignalDefinition:
         return SignalDefinition(
             code="source_conflict_manual_vs_enrichment",
+            signal_family="data",
             signal_class=SignalClass.CRITICAL,
             action=SignalAction.PRESERVE_MANUAL_VALUE,
             visibility=VisibilityProjection(

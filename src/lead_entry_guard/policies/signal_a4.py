@@ -14,6 +14,12 @@ Detection rule:
     - and the values differ
     → emit signal
 
+Distinction from C2 (conflicting_context):
+  A4 = data observation: any manual-vs-enrichment mismatch on any field.
+  C2 = context conclusion: cross-source conflict on routing-relevant fields
+       (company, phone) degrades decision readiness.
+  Both may fire on the same lead. That is correct and intentional.
+
 Field values are never copied into SignalResult or VisibilityProjection.
 Only tags, status codes, and boolean flags are emitted (ADR-008 PII invariant).
 """
@@ -36,6 +42,7 @@ from lead_entry_guard.core.signal_models import (
 
 A4_SIGNAL: SignalDefinition = SignalDefinition(
     code="source_conflict_manual_vs_enrichment",
+    signal_family="data",
     signal_class=SignalClass.CRITICAL,
     action=SignalAction.PRESERVE_MANUAL_VALUE,
     visibility=VisibilityProjection(

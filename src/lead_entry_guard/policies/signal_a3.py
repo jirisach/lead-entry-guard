@@ -73,6 +73,7 @@ _MAX_HYPHENS = 1  # more than this → soft signal
 
 A3_SIGNAL: SignalDefinition = SignalDefinition(
     code="suspicious_domain",
+    signal_family="data",
     signal_class=SignalClass.INFORMATIONAL,
     action=SignalAction.ACCEPT_WITH_FLAG,
     visibility=VisibilityProjection(
@@ -88,6 +89,7 @@ A3_SIGNAL: SignalDefinition = SignalDefinition(
 
 A3_SOFT_SIGNAL: SignalDefinition = SignalDefinition(
     code="low_trust_domain",
+    signal_family="data",
     signal_class=SignalClass.INFORMATIONAL,
     action=SignalAction.ACCEPT_LOW_QUALITY,
     visibility=VisibilityProjection(
