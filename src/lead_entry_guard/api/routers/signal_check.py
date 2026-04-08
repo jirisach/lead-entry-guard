@@ -88,12 +88,14 @@ from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from lead_entry_guard.core.signal_models import (
+    DecisionResultV2,
     FieldSourceRecord,
     FallbackPolicy,
     LeadSignalContext,
     SignalResult,
     VisibilityProjection,
 )
+from lead_entry_guard.policies.context_overlay import apply_context_overlay
 from lead_entry_guard.policies.signal_evaluator import SignalEvaluator
 
 logger = logging.getLogger(__name__)
@@ -454,12 +456,13 @@ class SignalOut(BaseModel):
     """
     Serialised signal for API response.
 
-    action, signal_class, mode are str (not domain enums) intentionally:
+    action, signal_class, signal_family, mode are str (not domain enums) intentionally:
     the response layer must not import domain enums — it is a serialisation
     boundary, not a domain boundary. Values are guaranteed by the domain
     models that produce them; correctness is asserted in parity tests.
     """
     code: str
+    signal_family: str   # "data" | "context"
     action: str
     signal_class: str
     visibility: VisibilityOut
@@ -469,6 +472,7 @@ class SignalOut(BaseModel):
     def from_signal(cls, s: SignalResult) -> "SignalOut":
         return cls(
             code=s.code,
+            signal_family=s.signal_family,
             action=s.action.value,
             signal_class=s.signal_class.value,
             visibility=VisibilityOut.from_model(s.visibility),
@@ -486,6 +490,11 @@ class SignalCheckResponse(BaseModel):
     signal_count: int
     signals: list[SignalOut]
     latency_ms: float = Field(..., ge=0)
+    # Context overlay fields — derived from C-series signals.
+    # review_required: True if C1 or C2 fired (missing or conflicting context).
+    # decision_confidence: "low" if C3 fired (false clarity). "normal" otherwise.
+    review_required: bool = False
+    decision_confidence: str = "normal"  # "normal" | "low"
 
 
 # ── Handler ───────────────────────────────────────────────────────────────────
@@ -626,6 +635,20 @@ def signal_check(request: Request, body: SignalCheckRequest) -> SignalCheckRespo
         },
     )
 
+    # Apply context overlay to derive review_required and decision_confidence.
+    # DecisionResultV2 is assembled here as a validation surface only —
+    # no auth, no DB, no persistence. decision="PASS" is a neutral placeholder
+    # that represents "pipeline would proceed" absent any fatal validation failure.
+    # REJECT guard in overlay ensures context signals never override fatal decisions.
+    _overlay_input = DecisionResultV2(
+        request_id=request_id,
+        tenant_id=body.scenario_id,  # demo scope — not authoritative identity
+        decision="PASS",
+        reason_codes=[],
+        signals=signals,
+    )
+    _overlay_result = apply_context_overlay(_overlay_input)
+
     return SignalCheckResponse(
         request_id=request_id,
         scenario_id=body.scenario_id,
@@ -634,4 +657,6 @@ def signal_check(request: Request, body: SignalCheckRequest) -> SignalCheckRespo
         signal_count=len(signals),
         signals=[SignalOut.from_signal(s) for s in signals],
         latency_ms=latency_ms,
+        review_required=_overlay_result.review_required,
+        decision_confidence=_overlay_result.decision_confidence,
     )
