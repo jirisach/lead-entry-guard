@@ -11,6 +11,7 @@ Models defined here:
   - SignalResult           — emitted instance of a signal (definition + runtime context)
   - FieldSourceRecord      — source provenance for a single field value
   - LeadSignalContext      — unified input for all signal rules
+  - DecisionResultV2       — decision + signals + context overlay fields
 
 Invariants (ADR-008):
   - Every SignalDefinition must define action, visibility, and fallback.
@@ -22,6 +23,7 @@ signal_family:
   "data"    — A-series: concrete observations about field values and sources.
   "context" — C-series: conclusions about decision readiness given available context.
   Both families may fire on the same lead. They are independent layers.
+  No default — omitting signal_family is a construction error.
 """
 from __future__ import annotations
 
@@ -207,11 +209,22 @@ class DecisionResultV2:
     DecisionResult extended with Phase 3B signal enforcement fields.
 
     Additive — all existing DecisionResult fields are preserved.
-    New field:
-      signals: list[SignalResult] — emitted signals, always a list (never None)
 
-    Signals annotate the primary decision — they do not change it.
-    Downstream systems must read signals[*].visibility for enforcement.
+    New fields (Phase 3B):
+      signals:             list[SignalResult] — emitted signals, always a list (never None).
+                           Signals annotate the primary decision — they do not change it.
+                           Downstream systems must read signals[*].visibility for enforcement.
+      review_required:     True if a context signal (C1 or C2) indicates the system lacks
+                           sufficient context to proceed without human review.
+                           Set by apply_context_overlay(). Never set directly.
+                           Never True when decision == "REJECT".
+      decision_confidence: "normal" | "low"
+                           "low" if C3 (false_clarity) fired — data is present but decision
+                           context is insufficient. Does not change the primary decision.
+                           Set by apply_context_overlay(). Never set directly.
+
+    These fields are outputs of the context overlay step — not inputs to policy evaluation.
+    Do not set them at construction time. Let apply_context_overlay() derive them from signals.
     """
     request_id: str
     tenant_id: str
@@ -220,6 +233,8 @@ class DecisionResultV2:
     duplicate_check_skipped: bool = False
     latency_ms: float = 0.0
     signals: list[SignalResult] = dataclass_field(default_factory=list)
+    review_required: bool = False
+    decision_confidence: str = "normal"  # "normal" | "low"
 
     def has_signal(self, code: str) -> bool:
         return any(s.code == code for s in self.signals)
