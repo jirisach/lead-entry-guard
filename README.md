@@ -4,15 +4,33 @@
 ![CI](https://github.com/jirisach/lead-entry-guard/actions/workflows/ci.yml/badge.svg)
 ![Benchmark](https://img.shields.io/badge/benchmark-100k%20leads-blue)
 
-Decide what becomes data before it enters your CRM.
+**Stop deals that should never enter the pipeline.**
 
-Most CRM problems don't come from bad data.
-They come from decisions the system never made.
+Most CRM pipeline problems aren't caused by bad data.
+They're caused by decisions the system was never forced to make.
 
-Lead Entry Guard captures decision context at entry and makes it explicit when there isn't enough to act on.
+A lead arrives with conflicting signals. Nothing is obviously broken.
+The system moves it forward. Someone works it.
+The deal was never decision-ready — but nobody stopped it at the point where stopping was cheap.
 
-So instead of letting uncertain leads quietly move forward,
-teams make an explicit decision — or stop.
+Lead Entry Guard shifts that decision to the moment of entry.
+If there isn't enough context to act on a lead, the system says so explicitly —
+before it enters the pipeline and before someone's time gets spent on it.
+
+**The system never guesses.**
+
+In benchmark testing on 100,000 real-world-like leads, roughly 1 in 5 entered the system with conflicting or insufficient context.
+
+Most pipelines accept these without a decision.
+
+---
+
+## When this isn't handled at entry
+
+- Teams spend time progressing deals that were never decision-ready
+- Conflicting data leads to inconsistent outreach — SDRs calling numbers no one verified
+- Pipeline fills with leads no one fully trusts, so forecast becomes unreliable
+- By the time the conflict surfaces, fixing it is expensive — the cheap moment was at entry
 
 ---
 
@@ -21,66 +39,30 @@ teams make an explicit decision — or stop.
 ```
 Before:
 Leads move forward because nothing is obviously broken.
+Teams spend time progressing deals that were never decision-ready.
 
 After:
 Leads move forward only when there is enough context to act on them.
+Uncertain leads surface a decision — not silence.
 ```
 
 The difference is not data quality. It is decision clarity at the moment of entry.
 
 ---
 
-## Why Lead Entry Guard
+## Why this matters
 
-Most CRM problems don't start in the CRM.
+Bad routing decisions compound.
 
-They start at ingestion.
+A lead enters with conflicting source data. It gets assigned. An SDR calls the wrong number.
+The enrichment wins over the form value — or vice versa — but no one decided which.
+That lead works its way through the pipeline for weeks before the conflict surfaces.
 
-Duplicate submissions, conflicting sources, shared inboxes, and malformed inputs
-slowly poison downstream systems. By the time the problem shows up in routing or
-reporting, it's already hard to fix cleanly.
+By that point, fixing it is expensive. Routing it correctly at entry costs nothing.
 
-Most systems react after data enters. Lead Entry Guard shifts this earlier.
-
-Instead of defining rules upfront or relying on manual review, it observes what
-happens at entry: which patterns repeat, which ones create friction, and which ones
-impact routing or reporting. Only then are those patterns turned into enforceable
-decisions.
-
-```
-Problem                         Protection
-──────────────────────────────────────────────────────────────
-Retry storms                    →  Idempotency layer
-  (webhook retries,                  same source_id = same result
-   API gateway floods,               no duplicate downstream writes
-   double-click imports)
-
-Duplicate leads                 →  Bloom + Redis detection
-  (re-uploads, CRM sync,             HMAC fingerprint per tenant
-   data broker imports)              deterministic identity signal
-
-Data quality issues             →  Validation + SalvagePolicy
-  (invalid phones,                   fatal errors → REJECT
-   malformed emails,                 recoverable errors → WARN or REJECT
-   partial payloads)                 per-tenant policy (STRICT / SALVAGE)
-
-Ambiguous signals               →  Signal layer (A3, A4, A6, C1, C2, C3)
-  (low trust domains,                each signal has action + visibility
-   shared inboxes,                   + fallback — no silent annotations
-   source conflicts,                 C1: missing identity anchor
-   missing context,                  C2: conflicting routing context
-   false clarity)                    C3: false clarity — data present,
-                                         decision context insufficient
-
-Co-occurring signals            →  Compound signal evaluation
-  (individually OK,                  pattern fires when signals align
-   together suspicious)              route_for_review, not hard block
-
-Review outcomes                 →  ReviewEvent capture
-  (who acted, what happened,         expired_ratio tracks process health
-   what expired without action)      not just data quality
-──────────────────────────────────────────────────────────────
-```
+Most systems react after data enters. Lead Entry Guard shifts that earlier —
+not by adding more rules, but by making implicit decisions explicit
+at the only moment when acting on them is still cheap.
 
 ---
 
@@ -119,6 +101,79 @@ Only patterns that consistently cause problems are promoted to candidate rules.
 Patterns that prove themselves become deterministic actions applied before
 data enters the CRM. The CRM workflow layer shifts from primary defense to
 exception handler.
+
+---
+
+## What the system protects against
+
+```
+Problem                         Protection
+──────────────────────────────────────────────────────────────
+Retry storms                    →  Idempotency layer
+  (webhook retries,                  same source_id = same result
+   API gateway floods,               no duplicate downstream writes
+   double-click imports)
+
+Duplicate leads                 →  Bloom + Redis detection
+  (re-uploads, CRM sync,             HMAC fingerprint per tenant
+   data broker imports)              deterministic identity signal
+
+Data quality issues             →  Validation + SalvagePolicy
+  (invalid phones,                   fatal errors → REJECT
+   malformed emails,                 recoverable errors → WARN or REJECT
+   partial payloads)                 per-tenant policy (STRICT / SALVAGE)
+
+Ambiguous signals               →  Signal layer (A3, A4, A6, C1, C2, C3)
+  (low trust domains,                each signal has action + visibility
+   shared inboxes,                   + fallback — no silent annotations
+   source conflicts,                 C1: missing identity anchor
+   missing context,                  C2: conflicting routing context
+   false clarity)                    C3: false clarity — data present,
+                                         decision context insufficient
+
+Co-occurring signals            →  Compound signal evaluation
+  (individually OK,                  pattern fires when signals align
+   together suspicious)              route_for_review, not hard block
+
+Review outcomes                 →  ReviewEvent capture
+  (who acted, what happened,         expired_ratio tracks process health
+   what expired without action)      not just data quality
+──────────────────────────────────────────────────────────────
+```
+
+---
+
+## Reliability under failure
+
+The system is designed to stay deterministic when dependencies fail.
+
+Redis down — the decision still runs. Duplicate detection degrades gracefully
+with a configurable fallback policy (accept with flag, reject, or queue).
+The same input always produces the same outcome, regardless of infrastructure state.
+
+300 concurrent retries of the same lead produce identical decisions.
+No replay drift. No duplicate writes.
+
+This is not a nice-to-have. It is the design invariant the entire system is built around:
+**same input, same decision, every time.**
+
+```
+Infrastructure state            Outcome
+──────────────────────────────────────────────────────────────
+Redis unavailable               →  Fallback policy fires
+                                    decision still deterministic
+                                    no crash, no silent pass-through
+
+Bloom unavailable               →  Redis-only detection
+                                    graceful tier degradation
+
+Slow downstream                 →  Async side-effects isolated
+                                    ingestion path unblocked
+
+300 concurrent retries          →  Identical outcome per source_id
+                                    zero duplicate downstream writes
+──────────────────────────────────────────────────────────────
+```
 
 ---
 
@@ -367,6 +422,9 @@ python load_tests/generate_report.py
 
 ### Benchmark baseline — 100,000 messy leads
 
+We ran 100,000 real-world-like leads through the full pipeline: ~20% with data quality
+issues, ~7% malformed, ~7.5% duplicates. The system never made a wrong accept/reject decision.
+
 | Metric | Value |
 |---|---|
 | Throughput | ~1,310–1,387 records/s |
@@ -518,5 +576,4 @@ Lead Entry Guard intentionally does not:
 - score leads or build probabilistic models
 - learn automatically — pattern evolution requires explicit human confirmation
 
-The system focuses on **deterministic ingestion protection** and
-**signal-aware enforcement at the pipeline boundary**.
+The system focuses on **deterministic decision enforcement at the pipeline boundary**.
