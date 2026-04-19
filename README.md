@@ -1,13 +1,32 @@
 # Lead Entry Guard
 
-![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![Python](https://img.shields.io/badge/python-3.13%2B-blue)
 ![CI](https://github.com/jirisach/lead-entry-guard/actions/workflows/ci.yml/badge.svg)
 ![Benchmark](https://img.shields.io/badge/benchmark-100k%20leads-blue)
 
 Decide what becomes data before it enters your CRM.
 
-Lead Entry Guard is a signal-aware ingestion layer placed in front of CRM systems.
-It detects patterns at entry, evaluates their frequency and downstream impact, and turns only the ones that consistently create friction into enforceable decisions.
+Most CRM problems don't come from bad data.
+They come from decisions the system never made.
+
+Lead Entry Guard captures decision context at entry and makes it explicit when there isn't enough to act on.
+
+So instead of letting uncertain leads quietly move forward,
+teams make an explicit decision — or stop.
+
+---
+
+## What changes in practice
+
+```
+Before:
+Leads move forward because nothing is obviously broken.
+
+After:
+Leads move forward only when there is enough context to act on them.
+```
+
+The difference is not data quality. It is decision clarity at the moment of entry.
 
 ---
 
@@ -45,10 +64,13 @@ Data quality issues             →  Validation + SalvagePolicy
    malformed emails,                 recoverable errors → WARN or REJECT
    partial payloads)                 per-tenant policy (STRICT / SALVAGE)
 
-Ambiguous signals               →  Signal layer (A3, A4, A6)
+Ambiguous signals               →  Signal layer (A3, A4, A6, C1, C2, C3)
   (low trust domains,                each signal has action + visibility
    shared inboxes,                   + fallback — no silent annotations
-   source conflicts)
+   source conflicts,                 C1: missing identity anchor
+   missing context,                  C2: conflicting routing context
+   false clarity)                    C3: false clarity — data present,
+                                         decision context insufficient
 
 Co-occurring signals            →  Compound signal evaluation
   (individually OK,                  pattern fires when signals align
@@ -176,6 +198,9 @@ Response:
     {"code": "source_conflict_manual_vs_enrichment", "action": "preserve_manual_value", "signal_class": "critical", ...},
     {"code": "suspicious_domain", "action": "accept_with_flag", "signal_class": "informational", ...}
   ],
+  "review_required": true,
+  "decision_confidence": "normal",
+  "context_quality": "review_required",
   "latency_ms": 0.8
 }
 ```
@@ -183,7 +208,46 @@ Response:
 `status: "clean"` means no signals fired — not an error. Signals are sorted
 alphabetically by code — same input always produces same response.
 
+`context_quality` values: `ok` · `low_confidence` · `review_required`
+
 Rate limited: 30 requests / 60 seconds per IP.
+
+---
+
+## Review Events API
+
+Captures the outcome of a review decision for a flagged lead.
+Requires API key — `tenant_id` and `actor` are resolved server-side.
+
+```bash
+curl -X POST http://localhost:8000/v1/review-events \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: <your-api-key>" \
+  -d '{
+    "fingerprint_id": "fp_abc123",
+    "action": "accept",
+    "reason": "Valid SMB despite shared inbox",
+    "expires_at": "2026-04-20T12:00:00Z"
+  }'
+```
+
+Response:
+
+```json
+{
+  "review_id": "uuid",
+  "fingerprint_id": "fp_abc123",
+  "action": "accept",
+  "recorded_at": "2026-04-19T10:00:00Z",
+  "low_insight": false
+}
+```
+
+Actions: `accept` · `reject` · `reassign`
+
+One human review per fingerprint per tenant. Duplicate submission → 409.
+`expired_ratio` tracks what percentage of pending reviews expired without action —
+a process health signal, not a data quality metric. Alert threshold: >20%.
 
 ---
 
@@ -213,12 +277,21 @@ Policy / Scoring Engine
 (active + async shadow)
      │
      ▼
-Signal Layer (A3, A4, A6)
-(domain trust, source conflict, shared inbox)
+Signal Layer (A3, A4, A6, C1, C2, C3)
+(domain trust, source conflict, shared inbox,
+ missing identity, conflicting context, false clarity)
+     │
+     ▼
+Context Overlay
+(derives review_required, decision_confidence, context_quality)
      │
      ▼
 Compound Signal Evaluation
 (co-occurring signals → route_for_review)
+     │
+     ▼
+Review Event Capture
+(accept / reject / reassign — expired_ratio as process health)
      │
      ├─ Audit Metadata (safe only)
      │
@@ -312,12 +385,14 @@ system prefers PASS over REJECT to ensure valid leads are not blocked.
 
 | Layer | Tests | What it covers |
 |---|---|---|
-| Unit | 39 | Normalization, fingerprint determinism, policy rules, salvage layer |
+| Unit | 75 | Normalization, fingerprint determinism, policy rules, salvage layer, context overlay, review events |
 | Integration | 32 | End-to-end pipeline flow, idempotency, tenant isolation, replay suite |
+| Contract | 46 | Ingest boundary, idempotency invariants, signal check parity, review event contract |
 | Resilience | 13 | Redis failures, Bloom failures, slow downstream, degraded modes |
 | Chaos | 9 | Multi-component failure, HMAC race conditions, reconciliation spikes |
+| API | 17 | context_quality in signal-check response, priority invariant, response shape |
 | Load | 6 | Retry storms, ingestion burst, jitter storm |
-| **Total** | **~99** | |
+| **Total** | **~322** | |
 
 Key properties validated:
 
