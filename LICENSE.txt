@@ -22,7 +22,7 @@
      - Enterprise tenant isolation features
      - Dedicated Redis cluster management
 
-   For commercial licensing inquiries contact: [your@email.com]
+   For commercial licensing inquiries contact: [sach.jiri1@gmail.com]
 
    Unless required by applicable law or agreed to in writing, the open
    source portions of this software are distributed on an "AS IS" BASIS,
